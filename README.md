@@ -14,7 +14,7 @@ println(code)  // Prints: map[string]int{"Bar":2,"Baz":3,"Foo":1,}
 ```
 
 ## Stability
-This is brand new and likely has many rough edge. 
+This is brand new and likely has many rough edges. 
 
 However, I'd like to make it robust so if you find issues either submit a PR or a bug report, please.
 
