@@ -1,4 +1,4 @@
-module typegen
+module github.com/mikeschinkel/go-typegen
 
 go 1.21
 
