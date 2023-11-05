@@ -6,9 +6,11 @@ Use-case is to create type instantiation code for use in unit testing.
 ## Usage
 
 ```go
+value := map[string]int{"Foo": 1, "Bar": 2, "Baz": 3} 
 cb := typegen.NewCodeBuilder()
 cb.Prettify = true
 code := cb.Marshal(value)
+println(code)  // Prints: map[string]int{"Bar":2,"Baz":3,"Foo":1,} 
 ```
 
 ## Stability
