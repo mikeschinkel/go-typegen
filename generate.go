@@ -8,17 +8,32 @@ import (
 
 type Generator struct {
 	strings.Builder
-	Indent string
-	Depth  int
+	Indent      string
+	Depth       int
+	omitPkg     string
+	varMap      VarMap
+	Assignments Assignments
+}
+type VarMap map[int]struct{}
+
+func (m VarMap) HasVar(varNo int) bool {
+	_, ok := m[varNo]
+	return ok
 }
 
-func NewGenerator() *Generator {
+func NewGenerator(omitPkg string) *Generator {
 	return &Generator{
-		Indent: "  ",
+		Indent:      "  ",
+		omitPkg:     omitPkg,
+		varMap:      make(VarMap),
+		Assignments: make(Assignments, 0),
 	}
 }
 
 func (g *Generator) WriteCode(n *Node) {
+	if strings.HasPrefix(n.Name, g.omitPkg+".") {
+		n.Name = n.Name[len(g.omitPkg)+1:]
+	}
 	switch n.Type {
 	case RefNode:
 		g.RefNode(n)
@@ -84,8 +99,53 @@ func (g *Generator) ElementNode(n *Node) {
 	panic("Implement me")
 }
 
+type Assignments []*Assignment
+type Assignment struct {
+	LHS string
+	RHS string
+}
+
+func (g *Generator) WriteAssignment(a *Assignment) {
+	g.WriteString(fmt.Sprintf("%s%s = %s\n", g.Indent, a.LHS, a.RHS))
+}
+
+func (g *Generator) recordAssignment(n *Node) {
+	parent := n.parent
+	switch parent.Type {
+	case FieldNameNode:
+		varName := fmt.Sprintf("var%d", n.Index)
+		g.Assignments = append(g.Assignments, &Assignment{
+			LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
+			RHS: "&" + varName,
+		})
+	case PointerNode:
+		parent := parent.parent
+		switch parent.Type {
+		case FieldNameNode:
+			varName := fmt.Sprintf("var%d", n.Index)
+			g.Assignments = append(g.Assignments, &Assignment{
+				LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
+				RHS: "&" + varName,
+			})
+		default:
+			panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
+		}
+	default:
+		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
+	}
+}
+
 func (g *Generator) RefNode(n *Node) {
+	if !g.varMap.HasVar(n.Index) {
+		// Var<Index> already been output, so we need to come back later and connect
+		// property with variable.
+		g.WriteString("nil")
+		g.recordAssignment(n)
+		goto end
+	}
+	// Write variable
 	g.WriteString(n.Name)
+end:
 }
 
 func (g *Generator) StringNode(n *Node) {
@@ -104,7 +164,12 @@ func (g *Generator) BoolNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
 }
 func (g *Generator) PointerNode(n *Node) {
-	g.WriteByte('&')
+	if g.VarGenerated(n.nodes[0]) {
+		// If var is already generated then g.RefNode() will output a variable name which
+		// we'll need to get the address of with `&. But if not, it will output a `nil`
+		// which we can't use `&` in front of.
+		g.WriteByte('&')
+	}
 	g.WriteCode(n.nodes[0])
 }
 
@@ -119,6 +184,7 @@ func (g *Generator) MapNode(n *Node) {
 	}
 	g.WriteByte('}')
 }
+
 func (g *Generator) SliceNode(n *Node) {
 	g.WriteString(n.Name)
 	g.WriteByte('{')
@@ -128,6 +194,7 @@ func (g *Generator) SliceNode(n *Node) {
 	}
 	g.WriteByte('}')
 }
+
 func (g *Generator) StructNode(n *Node) {
 	g.WriteString(n.Name)
 	g.WriteByte('{')
@@ -138,4 +205,15 @@ func (g *Generator) StructNode(n *Node) {
 		g.WriteByte(',')
 	}
 	g.WriteByte('}')
+}
+
+// VarGenerated will return true if that variable for n.Index has already been
+// generated and thus can be referenced by name.
+func (g *Generator) VarGenerated(n *Node) (pointing bool) {
+	if n.Type != RefNode {
+		goto end
+	}
+	pointing = g.varMap.HasVar(n.Index)
+end:
+	return pointing
 }

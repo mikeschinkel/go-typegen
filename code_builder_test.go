@@ -39,8 +39,13 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		{
 			name:  "Pointer to struct with property pointing to itself",
 			value: &recur,
-			want:  ``,
+			want:  fmt.Sprintf(`func getData() string {%s  var1 = recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1%s  return &var1%s}`, "\n", "\n", "\n", "\n"),
 		},
+		//{
+		//	name:  "Struct with property pointing to itself",
+		//	value: recur,
+		//	want:  ``,
+		//},
 		//{
 		//	name:  "Empty string/int map",
 		//	value: map[string]int{},
@@ -118,7 +123,7 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cb := typegen.NewCodeBuilder(tt.value, "getData")
+			cb := typegen.NewCodeBuilder(tt.value, "getData", "typegen_test")
 			cb.Build()
 			got := cb.String()
 			//g := typegen.NewGenerator()

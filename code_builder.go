@@ -23,13 +23,15 @@ type CodeBuilder struct {
 	nodes    Nodes
 	ptrMap   PointerMap
 	root     *Node
+	omitPkg  string
 }
 
-func NewCodeBuilder(value any, funcName string) *CodeBuilder {
+func NewCodeBuilder(value any, funcName string, omitPkg string) *CodeBuilder {
 	cb := &CodeBuilder{
 		original: value,
 		value:    reflect.ValueOf(value),
 		funcName: funcName,
+		omitPkg:  omitPkg,
 		nodeMap:  make(NodeMap),
 		ptrMap:   make(PointerMap),
 		nodes:    make(Nodes, 0),
@@ -57,30 +59,39 @@ func (cb *CodeBuilder) Build() {
 }
 
 func (cb *CodeBuilder) String() string {
-	g := NewGenerator()
+	var returnVar string
+	g := NewGenerator(cb.omitPkg)
 	g.WriteString(fmt.Sprintf("func %s() string {\n", cb.funcName))
-	for i := 0; i < len(cb.nodes); i++ {
+	nodeCnt := cb.nodes.Len()
+	for i := 0; i < nodeCnt; i++ {
 		n := cb.nodes[i]
 		if n.Value.IsZero() {
 			continue
 		}
-		//index = cb.nodes.Len() - 1
-		//if index >= 0 {
-		//	prior := cb.nodes[index]
-		//	if prior.Type == PointerNode && prior.Value.Elem() == rv {
-		//		// If prior was a pointer, and it was pointing to value of `rv` then skip
-		//		// registration.
-		//		node= prior
-		//		found = true
-		//		goto end
-		//	}
-		//}
-
-		g.WriteString(fmt.Sprintf("%svar%d := ", g.Indent, i))
-		n.Index = i
+		if n.Type == PointerNode {
+			if i < nodeCnt-1 {
+				i++
+				n = cb.nodes[i]
+			}
+			if returnVar == "" {
+				returnVar += "&" + n.Varname
+			}
+		}
+		if returnVar == "" {
+			returnVar = n.Varname
+		}
+		g.WriteString(fmt.Sprintf("%s%s = ", g.Indent, n.Varname))
 		g.WriteCode(n)
 		g.WriteByte('\n')
+
+		// Record that this var has been generated
+		g.varMap[i] = struct{}{}
+
+		for _, a := range g.Assignments {
+			g.WriteAssignment(a)
+		}
 	}
+	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
 	g.WriteByte('}')
 	return g.String()
 }
@@ -90,7 +101,11 @@ func (cb *CodeBuilder) marshalValue(rv refVal) (node *Node) {
 	if node != nil {
 		goto end
 	}
-	node = NewNodeWithValue(cb, "scalar", rv)
+	node = NewNode(&NodeArgs{
+		Name:        "scalar",
+		CodeBuilder: cb,
+		Value:       rv,
+	})
 end:
 	return node
 }
@@ -124,14 +139,25 @@ func (cb *CodeBuilder) marshalSlice(rv refVal) (node *Node) {
 		goto end
 	}
 	name = fmt.Sprintf("[]%s", rv.Type().Elem())
-	node = NewNodeWithValue(cb, name, rv)
+	node = NewNode(&NodeArgs{
+		Name:        name,
+		CodeBuilder: cb,
+		Value:       rv,
+	})
 	ref = cb.register(rv, node)
 
 	node.SetNodeCount(rv.Len())
 	for i := 0; i < rv.Len(); i++ {
-		child := NewTypedNodeWithValue(cb, fmt.Sprintf("Index %d", i), ElementNode, reflect.ValueOf(i))
+		child := NewNode(&NodeArgs{
+			Name:        fmt.Sprintf("Index %d", i),
+			Type:        ElementNode,
+			CodeBuilder: cb,
+			Value:       reflect.ValueOf(i),
+			Index:       i,
+		})
 		node.AddNode(child)
 		childValue := cb.marshalValue(rv.Index(i))
+		childValue.Index = i
 		childValue.Name = fmt.Sprintf("Value %d", i)
 		child.AddNode(childValue)
 	}
@@ -150,7 +176,11 @@ func (cb *CodeBuilder) marshalMap(rv refVal) (node *Node) {
 		goto end
 	}
 	name = fmt.Sprintf("map[%s]%s", rv.Type().Key(), rv.Type().Elem())
-	node = NewNodeWithValue(cb, name, rv)
+	node = NewNode(&NodeArgs{
+		Name:        name,
+		CodeBuilder: cb,
+		Value:       rv,
+	})
 	ref = cb.register(rv, node)
 	keys = cb.sortedKeys(rv)
 	node.SetNodeCount(len(keys))
@@ -170,10 +200,18 @@ func (cb *CodeBuilder) marshalPtr(rv refVal) (node *Node) {
 		goto end
 	}
 	if rv.IsNil() {
-		node = NewNodeWithValue(cb, "nil", rv)
+		node = NewNode(&NodeArgs{
+			Name:        "nil",
+			CodeBuilder: cb,
+			Value:       rv,
+		})
 		goto end
 	}
-	node = NewNodeWithValue(cb, "&", rv)
+	node = NewNode(&NodeArgs{
+		Name:        "&",
+		CodeBuilder: cb,
+		Value:       rv,
+	})
 	ref = cb.register(rv, node)
 	node.AddNode(cb.marshalValue(rv.Elem()))
 end:
@@ -188,10 +226,18 @@ func (cb *CodeBuilder) marshalInterface(rv refVal) (node *Node) {
 		goto end
 	}
 	if rv.IsNil() {
-		node = NewNodeWithValue(cb, "nil", rv)
+		node = NewNode(&NodeArgs{
+			Name:        "nil",
+			CodeBuilder: cb,
+			Value:       rv,
+		})
 		goto end
 	}
-	node = NewNodeWithValue(cb, rv.Type().String(), rv)
+	node = NewNode(&NodeArgs{
+		Name:        rv.Type().String(),
+		CodeBuilder: cb,
+		Value:       rv,
+	})
 	ref = cb.register(rv, node)
 	node.AddNode(cb.marshalValue(rv.Elem()))
 end:
@@ -205,12 +251,23 @@ func (cb *CodeBuilder) marshalStruct(rv refVal) (node *Node) {
 	if found {
 		goto end
 	}
-	node = NewNodeWithValue(cb, rv.Type().String(), rv)
+	node = NewNode(&NodeArgs{
+		Name:        rv.Type().String(),
+		CodeBuilder: cb,
+		Value:       rv,
+	})
 	ref = cb.register(rv, node)
 	for i := 0; i < rv.NumField(); i++ {
 		name := rv.Type().Field(i).Name
-		node.AddNode(NewTypedNodeWithValue(cb, name, FieldNameNode, reflect.ValueOf(name)).
-			AddNode(cb.marshalValue(rv.Field(i))))
+		child := NewNode(&NodeArgs{
+			Name:        name,
+			Type:        FieldNameNode,
+			CodeBuilder: cb,
+			Value:       reflect.ValueOf(name),
+			Index:       i,
+		})
+		node.AddNode(child)
+		child.AddNode(cb.marshalValue(rv.Field(i)))
 	}
 end:
 	return cb.newRefNode(node, ref)
@@ -251,13 +308,9 @@ end:
 }
 
 func (cb *CodeBuilder) setVarname(n *Node) int {
-	n.Varname = fmt.Sprintf("var%d", len(cb.nodeMap))
+	n.Index = len(cb.nodeMap)
+	n.Varname = fmt.Sprintf("var%d", n.Index)
 	return len(cb.nodeMap)
-}
-
-func (cb *CodeBuilder) registeredNode(rv refVal) *Node {
-	n, _ := cb.nodeMap[rv]
-	return n
 }
 
 func (cb *CodeBuilder) sortedKeys(rv refVal) (keys []reflect.Value) {
@@ -276,8 +329,12 @@ func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 	if !ref.IsValid() {
 		return node
 	}
-	return NewTypedNodeWithValue(cb,
-		fmt.Sprintf("var%s", node.Varname[3:]),
-		RefNode,
-		ref)
+	n = NewNode(&NodeArgs{
+		Name:        fmt.Sprintf("var%d", node.Index),
+		Type:        RefNode,
+		CodeBuilder: cb,
+		Value:       ref,
+		Index:       node.Index,
+	})
+	return n
 }

@@ -42,11 +42,20 @@ func (ns Nodes) WriteCode(g *Generator) {
 	}
 }
 
+type NodeArgs struct {
+	Name        string
+	Type        NodeType
+	CodeBuilder *CodeBuilder
+	Value       reflect.Value
+	Index       int
+}
+
 type Node struct {
 	Value       reflect.Value
 	Ref         reflect.Value
 	Type        NodeType
 	Name        string
+	parent      *Node
 	nodes       Nodes
 	codeBuilder *CodeBuilder
 	Indent      string
@@ -55,28 +64,17 @@ type Node struct {
 	Varname string
 }
 
-func NewTypedNodeWithValue(cb *CodeBuilder, name string, nt NodeType, rv reflect.Value) *Node {
-	node := newNode(cb, name, nt)
-	node.Value = rv
-	return node
-}
-
-func NewNodeWithValue(cb *CodeBuilder, name string, rv reflect.Value) *Node {
-	node := newNode(cb, name, getNodeType(rv.Kind()))
-	node.Value = rv
-	return node
-}
-
-func NewTypedNode(cb *CodeBuilder, name string, nt NodeType) *Node {
-	return newNode(cb, name, nt)
-}
-
-func newNode(cb *CodeBuilder, name string, nt NodeType) *Node {
+func NewNode(args *NodeArgs) *Node {
+	if args.Type == InvalidNode {
+		args.Type = getNodeType(args.Value.Kind())
+	}
 	return &Node{
-		Name:        name,
-		Type:        nt,
+		Name:        args.Name,
+		Type:        args.Type,
 		nodes:       make(Nodes, 0),
-		codeBuilder: cb,
+		codeBuilder: args.CodeBuilder,
+		Value:       args.Value,
+		Index:       args.Index,
 	}
 }
 
@@ -93,6 +91,7 @@ end:
 }
 
 func (n *Node) AddNode(node *Node) *Node {
+	node.parent = n
 	n.nodes = append(n.nodes, node)
 	return n
 }
@@ -114,4 +113,48 @@ func getNodeType(rk reflect.Kind) (nt NodeType) {
 		nt = NodeType(rk)
 	}
 	return nt
+}
+
+func nodeTypeName(nt NodeType) (s string) {
+	switch nt {
+	case PointerNode:
+		s = "Pointer"
+	case MapNode:
+		s = "Map"
+	case ArrayNode:
+		s = "Array"
+	case SliceNode:
+		s = "Slice"
+	case StructNode:
+		s = "Struct"
+	case InterfaceNode:
+		s = "Interface"
+	case StringNode:
+		s = "String"
+	case IntNode:
+		s = "Int"
+	case UIntNode:
+		s = "UInt"
+	case FloatNode:
+		s = "Float"
+	case BoolNode:
+		s = "Bool"
+	case InvalidNode:
+		s = "Invalid"
+	case RefNode:
+		s = "Ref"
+	case FieldNameNode:
+		s = "FieldName"
+	case FieldValueNode:
+		s = "FieldValue"
+	case MapKeyNode:
+		s = "MapKey"
+	case MapValueNode:
+		s = "MapValue"
+	case ElementNode:
+		s = "Element"
+	default:
+		panicf("Invalid node type: %d", nt)
+	}
+	return s
 }
