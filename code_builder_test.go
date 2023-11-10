@@ -2,7 +2,6 @@ package typegen_test
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/mikeschinkel/go-typegen"
@@ -36,26 +35,6 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		value any
 		want  string
 	}{
-		{
-			name:  "Pointer to struct with property pointing to itself",
-			value: &recur,
-			want:  fmt.Sprintf(`func getData() string {%s  var1 = recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1%s  return &var1%s}`, "\n", "\n", "\n", "\n"),
-		},
-		{
-			name:  "Struct with property pointing to itself",
-			value: recur,
-			want:  fmt.Sprintf(`func getData() string {%s  var1 = recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1%s  return var1%s}`, "\n", "\n", "\n", "\n"),
-		},
-		//{
-		//	name:  "Empty string/int map",
-		//	value: map[string]int{},
-		//	want:  `map[string]int{}`,
-		//},
-		//{
-		//	name:  "Simple string/int map",
-		//	value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
-		//	want:  `map[string]int{"Bar":2,"Baz":3,"Foo":1,}`, // Keys sorted alphabetically
-		//},
 		//{
 		//	name:  "Boolean true",
 		//	value: true,
@@ -120,6 +99,27 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		//	value: nil,
 		//	want:  `nil`,
 		//},
+		{
+			name:  "Pointer to struct with property pointing to itself",
+			value: &recur,
+			want:  fmt.Sprintf(`func getData() *recurStruct {%s  var1 := recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1%s  return &var1%s}`, "\n", "\n", "\n", "\n"),
+		},
+		{
+			name:  "Struct with property pointing to itself",
+			value: recur,
+			want:  fmt.Sprintf(`func getData() recurStruct {%s  var1 := recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1%s  return var1%s}`, "\n", "\n", "\n", "\n"),
+		},
+		{
+			name:  "Empty string/int map",
+			value: map[string]int{},
+			want:  fmt.Sprintf(`func getData() map[string]int {%s  var1 := map[string]int{}%s  return var1%s}`, "\n", "\n", "\n"),
+		},
+		{
+			name:  "Simple string/int map",
+			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
+			// Keys will be sorted alphabetically on output
+			want: fmt.Sprintf(`func getData() map[string]int {%s  var1 := map[string]int{"Bar":2,"Baz":3,"Foo":1,}%s  return var1%s}`, "\n", "\n", "\n"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -129,11 +129,7 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			//g := typegen.NewGenerator()
 			//g.WriteCode(cb.Nodes()[0])
 			//got := g.String()
-			if strings.HasPrefix(tt.want, "map[") {
-				assert.Equal(t, tt.want, fmt.Sprint(got))
-			} else {
-				assert.Equal(t, tt.want, got)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -13,6 +13,7 @@ type Generator struct {
 	omitPkg     string
 	varMap      VarMap
 	Assignments Assignments
+	varnameCtr  int
 }
 type VarMap map[int]struct{}
 
@@ -28,6 +29,20 @@ func NewGenerator(omitPkg string) *Generator {
 		varMap:      make(VarMap),
 		Assignments: make(Assignments, 0),
 	}
+}
+
+func (g *Generator) NodeVarname(n *Node) string {
+	if n.Varname() != "" {
+		goto end
+	}
+	if n.NodeRef != nil {
+		n.SetVarname(g.NodeVarname(n.NodeRef))
+		goto end
+	}
+	g.varnameCtr++
+	n.SetVarname(fmt.Sprintf("var%d", g.varnameCtr))
+end:
+	return n.Varname()
 }
 
 func (g *Generator) MaybeStripPackage(name string) string {
@@ -119,14 +134,14 @@ type Assignment struct {
 }
 
 func (g *Generator) WriteAssignment(a *Assignment) {
-	g.WriteString(fmt.Sprintf("%s%s = %s\n", g.Indent, a.LHS, a.RHS))
+	g.WriteString(fmt.Sprintf("%s%s := %s\n", g.Indent, a.LHS, a.RHS))
 }
 
 func (g *Generator) recordAssignment(n *Node) {
 	parent := n.parent
 	switch parent.Type {
 	case FieldNameNode:
-		varName := n.Varname()
+		varName := g.NodeVarname(n)
 		g.Assignments = append(g.Assignments, &Assignment{
 			LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
 			RHS: "&" + varName,
@@ -135,7 +150,7 @@ func (g *Generator) recordAssignment(n *Node) {
 		parent := parent.parent
 		switch parent.Type {
 		case FieldNameNode:
-			varName := n.Varname()
+			varName := g.NodeVarname(n)
 			g.Assignments = append(g.Assignments, &Assignment{
 				LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
 				RHS: "&" + varName,
@@ -157,7 +172,7 @@ func (g *Generator) RefNode(n *Node) {
 		goto end
 	}
 	// Write variable
-	g.WriteString(n.Name)
+	g.WriteString(g.NodeVarname(n))
 end:
 }
 

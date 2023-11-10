@@ -1,7 +1,6 @@
 package typegen
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -45,6 +44,7 @@ func (ns Nodes) WriteCode(g *Generator) {
 
 type NodeArgs struct {
 	Name        string
+	NodeRef     *Node
 	Type        NodeType
 	CodeBuilder *CodeBuilder
 	Value       reflect.Value
@@ -54,6 +54,7 @@ type NodeArgs struct {
 type Node struct {
 	Value       reflect.Value
 	Ref         reflect.Value
+	NodeRef     *Node
 	Type        NodeType
 	Name        string
 	parent      *Node
@@ -61,6 +62,7 @@ type Node struct {
 	codeBuilder *CodeBuilder
 	Indent      string
 	Index       int
+	varname     string
 }
 
 func NewNode(args *NodeArgs) *Node {
@@ -70,6 +72,7 @@ func NewNode(args *NodeArgs) *Node {
 	return &Node{
 		Name:        args.Name,
 		Type:        args.Type,
+		NodeRef:     args.NodeRef,
 		nodes:       make(Nodes, 0),
 		codeBuilder: args.CodeBuilder,
 		Value:       args.Value,
@@ -77,8 +80,14 @@ func NewNode(args *NodeArgs) *Node {
 	}
 }
 
+var counter int
+
 func (n *Node) Varname() string {
-	return fmt.Sprintf("var%d", n.Index)
+	return n.varname
+}
+
+func (n *Node) SetVarname(name string) {
+	n.varname = name
 }
 
 func (n *Node) SetNodeCount(cnt int) {
@@ -100,8 +109,8 @@ func (n *Node) AddNode(node *Node) *Node {
 }
 
 func getNodeType(rk reflect.Kind) (nt NodeType) {
-	// Start with the type definition
 	switch rk {
+	// Catch all NodeTypes that do NOT match a reflect.Type
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		nt = IntNode
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -113,6 +122,7 @@ func getNodeType(rk reflect.Kind) (nt NodeType) {
 	case reflect.Invalid:
 		nt = InvalidNode
 	default:
+		// Catch all NodeTypes that DO match a reflect.Type
 		nt = NodeType(rk)
 	}
 	return nt

@@ -73,15 +73,18 @@ func (cb *CodeBuilder) String() string {
 				n = cb.nodes[i]
 			}
 			if returnVar == "" {
-				returnVar += "&" + n.Varname()
+				returnVar += "&" + g.NodeVarname(n)
 				returnType = "*" + g.MaybeStripPackage(n.Value.Type().String())
 			}
 		}
 		if returnVar == "" {
-			returnVar = n.Varname()
+			returnVar = g.NodeVarname(n)
 			returnType = g.MaybeStripPackage(n.Value.Type().String())
 		}
-		g.WriteString(fmt.Sprintf("%s%s = ", g.Indent, n.Varname()))
+		g.WriteString(fmt.Sprintf("%s%s := ",
+			g.Indent,
+			g.NodeVarname(n),
+		))
 		g.WriteCode(n)
 		g.WriteByte('\n')
 
@@ -320,20 +323,15 @@ func (cb *CodeBuilder) register(rv refVal, n *Node) (ref reflect.Value) {
 		goto end
 	}
 	cb.nodeMap[rv] = n
-	n.Index = cb.setVarname(n)
-	n.Ref = reflect.ValueOf(n.Index)
+	n.Index = len(cb.nodeMap)
+	ref = reflect.ValueOf(n.Index)
 	if rv.Kind() == reflect.Pointer {
 		cb.ptrMap[rv.Pointer()] = n
 	}
 	cb.nodes = append(cb.nodes, n)
-	ref = n.Ref
+	n.Ref = ref
 end:
 	return ref
-}
-
-func (cb *CodeBuilder) setVarname(n *Node) int {
-	n.Index = len(cb.nodeMap)
-	return len(cb.nodeMap)
 }
 
 func (cb *CodeBuilder) sortedKeys(rv refVal) (keys []reflect.Value) {
@@ -350,10 +348,12 @@ func (cb *CodeBuilder) sortedKeys(rv refVal) (keys []reflect.Value) {
 
 func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 	if !ref.IsValid() {
+		// We don't need to create a ref as it was already found to be registered
 		return node
 	}
 	n = NewNode(&NodeArgs{
-		Name:        node.Varname(),
+		Name:        fmt.Sprintf("ref%d", node.Index),
+		NodeRef:     node,
 		Type:        RefNode,
 		CodeBuilder: cb,
 		Value:       ref,
