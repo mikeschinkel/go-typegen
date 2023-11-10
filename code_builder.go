@@ -34,7 +34,7 @@ func NewCodeBuilder(value any, funcName string, omitPkg string) *CodeBuilder {
 		omitPkg:  omitPkg,
 		nodeMap:  make(NodeMap),
 		ptrMap:   make(PointerMap),
-		nodes:    make(Nodes, 0),
+		nodes:    make(Nodes, 1), // Zero element is unused so node.index==0 can represent invalid
 	}
 
 	//// If the value is a pointer to an interface{}, we want to get the interface.
@@ -59,11 +59,10 @@ func (cb *CodeBuilder) Build() {
 }
 
 func (cb *CodeBuilder) String() string {
-	var returnVar string
+	var returnVar, returnType string
 	g := NewGenerator(cb.omitPkg)
-	g.WriteString(fmt.Sprintf("func %s() string {\n", cb.funcName))
 	nodeCnt := cb.nodes.Len()
-	for i := 0; i < nodeCnt; i++ {
+	for i := 1; i < nodeCnt; i++ {
 		n := cb.nodes[i]
 		if n.Value.IsZero() {
 			continue
@@ -74,13 +73,15 @@ func (cb *CodeBuilder) String() string {
 				n = cb.nodes[i]
 			}
 			if returnVar == "" {
-				returnVar += "&" + n.Varname
+				returnVar += "&" + n.Varname()
+				returnType = "*" + g.MaybeStripPackage(n.Value.Type().String())
 			}
 		}
 		if returnVar == "" {
-			returnVar = n.Varname
+			returnVar = n.Varname()
+			returnType = g.MaybeStripPackage(n.Value.Type().String())
 		}
-		g.WriteString(fmt.Sprintf("%s%s = ", g.Indent, n.Varname))
+		g.WriteString(fmt.Sprintf("%s%s = ", g.Indent, n.Varname()))
 		g.WriteCode(n)
 		g.WriteByte('\n')
 
@@ -93,7 +94,7 @@ func (cb *CodeBuilder) String() string {
 	}
 	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
 	g.WriteByte('}')
-	return g.String()
+	return fmt.Sprintf("func %s() %s {\n%s", cb.funcName, returnType, g.String())
 }
 
 func (cb *CodeBuilder) marshalValue(rv refVal) (node *Node) {
@@ -273,18 +274,41 @@ end:
 	return cb.newRefNode(node, ref)
 }
 
+func (cb *CodeBuilder) findNodeMapKey(rv refVal) (node *Node, found bool) {
+	for k, n := range cb.nodeMap {
+		if !k.Equal(rv) {
+			continue
+		}
+		node = n
+		found = true
+		goto end
+	}
+end:
+	return node, found
+}
+
 func (cb *CodeBuilder) isRegistered(rv refVal) (node *Node, found bool) {
 	//var index int
 
-	if rv.Kind() == reflect.Pointer {
-		node, found = cb.ptrMap[rv.Pointer()]
-		if found {
-			// If the value of `rv` is a pointer, and we previously recorded it, then skip
-			// registration.
-			goto end
-		}
+	if rv.Kind() != reflect.Pointer {
+		node, found = cb.findNodeMapKey(rv)
+		goto end
 	}
-	node, found = cb.nodeMap[rv]
+
+	node, found = cb.ptrMap[rv.Pointer()]
+	if found {
+		// If the value of `rv` is a pointer, and we previously recorded it, then skip
+		// registration.
+		goto end
+	}
+
+	// Look for the value pointed to having already been registered
+	node, found = cb.findNodeMapKey(rv.Elem())
+	if found {
+		// If yes, create a RefNode for it
+		node = cb.newRefNode(node, rv.Elem())
+	}
+
 end:
 	return node, found
 }
@@ -295,9 +319,9 @@ func (cb *CodeBuilder) register(rv refVal, n *Node) (ref reflect.Value) {
 		ref = n.Ref
 		goto end
 	}
+	cb.nodeMap[rv] = n
 	n.Index = cb.setVarname(n)
 	n.Ref = reflect.ValueOf(n.Index)
-	cb.nodeMap[rv] = n
 	if rv.Kind() == reflect.Pointer {
 		cb.ptrMap[rv.Pointer()] = n
 	}
@@ -309,7 +333,6 @@ end:
 
 func (cb *CodeBuilder) setVarname(n *Node) int {
 	n.Index = len(cb.nodeMap)
-	n.Varname = fmt.Sprintf("var%d", n.Index)
 	return len(cb.nodeMap)
 }
 
@@ -330,7 +353,7 @@ func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 		return node
 	}
 	n = NewNode(&NodeArgs{
-		Name:        fmt.Sprintf("var%d", node.Index),
+		Name:        node.Varname(),
 		Type:        RefNode,
 		CodeBuilder: cb,
 		Value:       ref,

@@ -41,11 +41,11 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			value: &recur,
 			want:  fmt.Sprintf(`func getData() string {%s  var1 = recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1%s  return &var1%s}`, "\n", "\n", "\n", "\n"),
 		},
-		//{
-		//	name:  "Struct with property pointing to itself",
-		//	value: recur,
-		//	want:  ``,
-		//},
+		{
+			name:  "Struct with property pointing to itself",
+			value: recur,
+			want:  fmt.Sprintf(`func getData() string {%s  var1 = recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1%s  return var1%s}`, "\n", "\n", "\n", "\n"),
+		},
 		//{
 		//	name:  "Empty string/int map",
 		//	value: map[string]int{},

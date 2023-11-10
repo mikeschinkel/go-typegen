@@ -30,10 +30,15 @@ func NewGenerator(omitPkg string) *Generator {
 	}
 }
 
-func (g *Generator) WriteCode(n *Node) {
-	if strings.HasPrefix(n.Name, g.omitPkg+".") {
-		n.Name = n.Name[len(g.omitPkg)+1:]
+func (g *Generator) MaybeStripPackage(name string) string {
+	if strings.HasPrefix(name, g.omitPkg+".") {
+		name = name[len(g.omitPkg)+1:]
 	}
+	return name
+}
+
+func (g *Generator) WriteCode(n *Node) {
+	n.Name = g.MaybeStripPackage(n.Name)
 	switch n.Type {
 	case RefNode:
 		g.RefNode(n)
@@ -65,10 +70,10 @@ func (g *Generator) WriteCode(n *Node) {
 		g.FieldValueNode(n)
 	case ElementNode:
 		g.ElementNode(n)
-	//case MapKeyNode:
-	//	g.MapKeyNode(n)
-	//case MapValueNode:
-	//	g.MapValueNode(n)
+	case MapKeyNode:
+		g.MapKeyNode(n)
+	case MapValueNode:
+		g.MapValueNode(n)
 
 	case SliceNode:
 		g.SliceNode(n)
@@ -99,6 +104,14 @@ func (g *Generator) ElementNode(n *Node) {
 	panic("Implement me")
 }
 
+func (g *Generator) MapKeyNode(n *Node) {
+	panic("Implement me")
+}
+
+func (g *Generator) MapValueNode(n *Node) {
+	panic("Implement me")
+}
+
 type Assignments []*Assignment
 type Assignment struct {
 	LHS string
@@ -113,7 +126,7 @@ func (g *Generator) recordAssignment(n *Node) {
 	parent := n.parent
 	switch parent.Type {
 	case FieldNameNode:
-		varName := fmt.Sprintf("var%d", n.Index)
+		varName := n.Varname()
 		g.Assignments = append(g.Assignments, &Assignment{
 			LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
 			RHS: "&" + varName,
@@ -122,7 +135,7 @@ func (g *Generator) recordAssignment(n *Node) {
 		parent := parent.parent
 		switch parent.Type {
 		case FieldNameNode:
-			varName := fmt.Sprintf("var%d", n.Index)
+			varName := n.Varname()
 			g.Assignments = append(g.Assignments, &Assignment{
 				LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
 				RHS: "&" + varName,

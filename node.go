@@ -1,6 +1,7 @@
 package typegen
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -60,8 +61,6 @@ type Node struct {
 	codeBuilder *CodeBuilder
 	Indent      string
 	Index       int
-
-	Varname string
 }
 
 func NewNode(args *NodeArgs) *Node {
@@ -76,6 +75,10 @@ func NewNode(args *NodeArgs) *Node {
 		Value:       args.Value,
 		Index:       args.Index,
 	}
+}
+
+func (n *Node) Varname() string {
+	return fmt.Sprintf("var%d", n.Index)
 }
 
 func (n *Node) SetNodeCount(cnt int) {
