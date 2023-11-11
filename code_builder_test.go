@@ -35,59 +35,75 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		value any
 		want  string
 	}{
+		{
+			name:  "Simple string/int map",
+			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
+			// Keys will be sorted alphabetically on output
+			want: wantValue("map[string]int", `map[string]int{"Bar":2,"Baz":3,"Foo":1,}`),
+		},
+		{
+			name:  "Empty string/int map",
+			value: map[string]int{},
+			want:  wantValue("map[string]int", "map[string]int{}"),
+		},
+		{
+			name:  "Boolean true",
+			value: true,
+			want:  wantValue("bool", `true`),
+		},
+		{
+			name:  "Integer",
+			value: 100,
+			want:  wantValue("int", `100`),
+		},
+		{
+			name:  "64-bit integer",
+			value: int64(100),
+			want:  wantValue("int64", `int64(100)`),
+		},
+		{
+			name:  "Float",
+			value: 1.23,
+			want:  wantValue("float64", `float64(1.230000)`),
+		},
+		{
+			name:  "Simple String",
+			value: "Hello World",
+			want:  wantValue("string", `"Hello World"`),
+		},
+		{
+			name:  "Empty int slice",
+			value: []int{},
+			want:  wantValue(`[]int`, `[]int{}`),
+		},
+		{
+			name:  "Simple int slice",
+			value: []int{1, 2, 3},
+			want:  wantValue(`[]int`, `[]int{1,2,3,}`),
+		},
+		{
+			value: struct{}{},
+			want:  wantValue(`struct {}`, `struct {}{}`),
+		},
+		{
+			name:  "Simple struct",
+			value: testStruct{},
+			want:  wantValue(`testStruct`, `testStruct{Int:0,String:"",}`),
+		},
+		{
+			name:  "Pointer to simple struct",
+			value: &testStruct{},
+			want:  wantPtrValue(`*testStruct`, `testStruct{Int:0,String:"",}`),
+		},
 		//{
-		//	name:  "Boolean true",
-		//	value: true,
-		//	want:  `true`,
-		//},
-		//{
-		//	name:  "Integer",
-		//	value: 100,
-		//	want:  `100`,
-		//},
-		//{
-		//	name:  "Float",
-		//	value: 1.23,
-		//	want:  `1.230000`,
-		//},
-		//{
-		//	name:  "Simple String",
-		//	value: "Hello World",
-		//	want:  `"Hello World"`,
-		//},
-		//{
-		//	name:  "Pointer to simple struct",
-		//	value: &testStruct{},
-		//	want:  `&typegen_test.testStruct{Int:0,String:"",}`,
-		//},
-		//{
-		//	name:  "Simple struct",
-		//	value: testStruct{},
-		//	want:  `typegen_test.testStruct{Int:0,String:"",}`,
-		//},
-		//{
-		//	name:  "Empty int slice",
-		//	value: []int{},
-		//	want:  `[]int{}`,
-		//},
-		//{
-		//	name:  "Simple int slice",
-		//	value: []int{1, 2, 3},
-		//	want:  `[]int{1,2,3,}`,
+		//	name:  "Struct with property pointing to itself",
+		//	value: recur,
+		//	want:  wantValue(`typegen.recur2Struct`, `1`),
 		//},
 		//{
 		//	name:  "Indirect Pointer to struct with property pointing to itself",
 		//	value: &recur2,
-		//	want:  `&typegen.recur2Struct{recur:[]*typegen.recur2Struct{&typegen.recur2Struct{recur:[]*typegen.recur2Struct{nil/*** recursion ***/,},},},}`,
-		//},
-		//{
-		//	value: struct{}{},
-		//	want:  `struct {}{}`,
-		//},
-		//{
-		//	name:  "Struct with property pointing to itself",
-		//	value: recur,
-		//	want:  `typegen.recurStruct{name:"root",recur:&typegen.recurStruct{name:"root",recur:&typegen.recurStruct{name:"root",recur:nil/*** recursion ***/,extra:"whatever",},extra:"whatever",},extra:"whatever",}`,
+		//	want:  wantValue(`*typegen.recur2Struct`, `1`),
 		//},
 		//{
 		//	name: "interface{}{}",
@@ -99,27 +115,16 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		//	value: nil,
 		//	want:  `nil`,
 		//},
-		{
-			name:  "Pointer to struct with property pointing to itself",
-			value: &recur,
-			want:  fmt.Sprintf(`func getData() *recurStruct {%s  var1 := recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1%s  return &var1%s}`, "\n", "\n", "\n", "\n"),
-		},
-		{
-			name:  "Struct with property pointing to itself",
-			value: recur,
-			want:  fmt.Sprintf(`func getData() recurStruct {%s  var1 := recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1%s  return var1%s}`, "\n", "\n", "\n", "\n"),
-		},
-		{
-			name:  "Empty string/int map",
-			value: map[string]int{},
-			want:  fmt.Sprintf(`func getData() map[string]int {%s  var1 := map[string]int{}%s  return var1%s}`, "\n", "\n", "\n"),
-		},
-		{
-			name:  "Simple string/int map",
-			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
-			// Keys will be sorted alphabetically on output
-			want: fmt.Sprintf(`func getData() map[string]int {%s  var1 := map[string]int{"Bar":2,"Baz":3,"Foo":1,}%s  return var1%s}`, "\n", "\n", "\n"),
-		},
+		//{
+		//	name:  "Pointer to struct with property pointing to itself",
+		//	value: &recur,
+		//	want:  wantValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1`, "&var1", "\n"),
+		//},
+		//{
+		//	name:  "Struct with property pointing to itself",
+		//	value: recur,
+		//	want:  wantValue("recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1`, "var1", "\n"),
+		//},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -134,8 +139,17 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 	}
 }
 
-//// Start with the type definition
-//case reflect.Struct:
-//case reflect.Ptr:
+func wantValue(typ, want string, args ...any) string {
+	return wantValueWithReturn(typ, want, "var1", args...)
+}
+func wantPtrValue(typ, want string, args ...any) string {
+	return wantValueWithReturn(typ, want, "&var1", args...)
+}
 
-// 824633795064
+func wantValueWithReturn(typ, want, ret string, args ...any) string {
+	want = fmt.Sprintf("%s\n  return %s", want, ret)
+	if len(args) > 0 {
+		want = fmt.Sprintf(want, args...)
+	}
+	return fmt.Sprintf(`func getData() %s {%s  var1 := %s%s}`, typ, "\n", want, "\n")
+}

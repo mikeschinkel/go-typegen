@@ -46,9 +46,19 @@ end:
 }
 
 func (g *Generator) MaybeStripPackage(name string) string {
+	if name == "&" {
+		goto end
+	}
+	if len(name) == 0 {
+		goto end
+	}
+	if name[0] == '*' {
+		name = name[1:]
+	}
 	if strings.HasPrefix(name, g.omitPkg+".") {
 		name = name[len(g.omitPkg)+1:]
 	}
+end:
 	return name
 }
 
@@ -69,12 +79,6 @@ func (g *Generator) WriteCode(n *Node) {
 		g.InterfaceNode(n)
 	case StringNode:
 		g.StringNode(n)
-	case IntNode:
-		g.IntNode(n)
-	case UIntNode:
-		g.UIntNode(n)
-	case FloatNode:
-		g.FloatNode(n)
 	case BoolNode:
 		g.BoolNode(n)
 	case InvalidNode:
@@ -89,10 +93,75 @@ func (g *Generator) WriteCode(n *Node) {
 		g.MapKeyNode(n)
 	case MapValueNode:
 		g.MapValueNode(n)
-
 	case SliceNode:
 		g.SliceNode(n)
+
+	case IntNode:
+		g.IntNode(n)
+	case Int8Node:
+		g.Int8Node(n)
+	case Int16Node:
+		g.Int16Node(n)
+	case Int32Node:
+		g.Int32Node(n)
+	case Int64Node:
+		g.Int64Node(n)
+	case UintNode:
+		g.UintNode(n)
+	case Uint8Node:
+		g.Uint8Node(n)
+	case Uint16Node:
+		g.Uint16Node(n)
+	case Uint32Node:
+		g.Uint32Node(n)
+	case Uint64Node:
+		g.Uint64Node(n)
+	case Float32Node:
+		g.Float32Node(n)
+	case Float64Node:
+		g.Float64Node(n)
+
 	}
+}
+
+func (g *Generator) Int8Node(n *Node) {
+	g.WriteString(fmt.Sprintf("int8(%d)", n.Value.Int()))
+}
+
+func (g *Generator) Int16Node(n *Node) {
+	g.WriteString(fmt.Sprintf("int16(%d)", n.Value.Int()))
+}
+
+func (g *Generator) Int32Node(n *Node) {
+	g.WriteString(fmt.Sprintf("int32(%d)", n.Value.Int()))
+}
+
+func (g *Generator) Int64Node(n *Node) {
+	g.WriteString(fmt.Sprintf("int64(%d)", n.Value.Int()))
+}
+
+func (g *Generator) Uint8Node(n *Node) {
+	g.WriteString(fmt.Sprintf("Uint8(%d)", n.Value.Uint()))
+}
+
+func (g *Generator) Uint16Node(n *Node) {
+	g.WriteString(fmt.Sprintf("Uint16(%d)", n.Value.Uint()))
+}
+
+func (g *Generator) Uint32Node(n *Node) {
+	g.WriteString(fmt.Sprintf("Uint32(%d)", n.Value.Uint()))
+}
+
+func (g *Generator) Uint64Node(n *Node) {
+	g.WriteString(fmt.Sprintf("Uint64(%d)", n.Value.Uint()))
+}
+
+func (g *Generator) Float32Node(n *Node) {
+	g.WriteString(fmt.Sprintf("float32(%f)", n.Value.Float()))
+}
+
+func (g *Generator) Float64Node(n *Node) {
+	g.WriteString(fmt.Sprintf("float64(%f)", n.Value.Float()))
 }
 
 func (g *Generator) ArrayNode(n *Node) {
@@ -139,6 +208,9 @@ func (g *Generator) WriteAssignment(a *Assignment) {
 
 func (g *Generator) recordAssignment(n *Node) {
 	parent := n.parent
+	if parent == nil {
+		panic("Handle when node.Parent is nil")
+	}
 	switch parent.Type {
 	case FieldNameNode:
 		varName := g.NodeVarname(n)
@@ -147,12 +219,16 @@ func (g *Generator) recordAssignment(n *Node) {
 			RHS: "&" + varName,
 		})
 	case PointerNode:
-		parent := parent.parent
-		switch parent.Type {
+		grandParent := parent.parent
+		if grandParent == nil {
+			// We are basically at the root
+			goto end
+		}
+		switch grandParent.Type {
 		case FieldNameNode:
 			varName := g.NodeVarname(n)
 			g.Assignments = append(g.Assignments, &Assignment{
-				LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
+				LHS: fmt.Sprintf("%s.%s", varName, grandParent.Name),
 				RHS: "&" + varName,
 			})
 		default:
@@ -161,6 +237,7 @@ func (g *Generator) recordAssignment(n *Node) {
 	default:
 		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
 	}
+end:
 }
 
 func (g *Generator) RefNode(n *Node) {
@@ -182,11 +259,7 @@ func (g *Generator) StringNode(n *Node) {
 func (g *Generator) IntNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%d", n.Value.Int()))
 }
-func (g *Generator) UIntNode(n *Node) {
-	g.WriteString(fmt.Sprintf("%d", n.Value.Uint()))
-}
-func (g *Generator) FloatNode(n *Node) {
-	g.WriteString(fmt.Sprintf("%f", n.Value.Float()))
+func (g *Generator) UintNode(n *Node) {
 }
 func (g *Generator) BoolNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%t", n.Value.Bool()))

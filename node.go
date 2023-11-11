@@ -14,9 +14,19 @@ const (
 	StructNode     = NodeType(reflect.Struct)
 	InterfaceNode  = NodeType(reflect.Interface)
 	StringNode     = NodeType(reflect.String)
-	IntNode        = NodeType(reflect.Int64)
-	UIntNode       = NodeType(reflect.Uint64)
-	FloatNode      = NodeType(reflect.Float64)
+	IntNode        = NodeType(reflect.Int)
+	Int8Node       = NodeType(reflect.Int8)
+	Int16Node      = NodeType(reflect.Int16)
+	Int32Node      = NodeType(reflect.Int32)
+	Int64Node      = NodeType(reflect.Int64)
+	UintNode       = NodeType(reflect.Uint)
+	Uint8Node      = NodeType(reflect.Uint8)
+	Uint16Node     = NodeType(reflect.Uint16)
+	Uint32Node     = NodeType(reflect.Uint32)
+	Uint64Node     = NodeType(reflect.Uint64)
+	FloatNode      = NodeType(reflect.Float32)
+	Float32Node    = NodeType(reflect.Float32)
+	Float64Node    = NodeType(reflect.Float64)
 	BoolNode       = NodeType(reflect.Bool)
 	InvalidNode    = NodeType(reflect.Invalid)
 	RefNode        = NodeType(reflect.UnsafePointer + 10)
@@ -67,7 +77,7 @@ type Node struct {
 
 func NewNode(args *NodeArgs) *Node {
 	if args.Type == InvalidNode {
-		args.Type = getNodeType(args.Value.Kind())
+		args.Type = NodeType(args.Value.Kind())
 	}
 	return &Node{
 		Name:        args.Name,
@@ -80,7 +90,21 @@ func NewNode(args *NodeArgs) *Node {
 	}
 }
 
-var counter int
+// isPointedAtBy returns true if `n` is pointed at by `ptr`.
+func (n *Node) isPointedAtBy(ptr *Node) (is bool) {
+	if ptr == nil {
+		goto end
+	}
+	if ptr.Type != PointerNode {
+		goto end
+	}
+	if n != ptr.nodes[0] {
+		goto end
+	}
+	is = true
+end:
+	return is
+}
 
 func (n *Node) Varname() string {
 	return n.varname
@@ -103,29 +127,16 @@ end:
 }
 
 func (n *Node) AddNode(node *Node) *Node {
+	if n.Type == PointerNode && n.NodeRef == nil && node.Type == RefNode {
+		// If adder node is a pointer, its NodeRef is empty, and the added node is a
+		// NodeRef, then the copy the added node's NodeRef point. This is needed because
+		// a struct for example will get wrapped by a NodeRef but its pointer node has no
+		// reference to the node it points to.
+		n.NodeRef = node.NodeRef
+	}
 	node.parent = n
 	n.nodes = append(n.nodes, node)
 	return n
-}
-
-func getNodeType(rk reflect.Kind) (nt NodeType) {
-	switch rk {
-	// Catch all NodeTypes that do NOT match a reflect.Type
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		nt = IntNode
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		nt = UIntNode
-	case reflect.Float32, reflect.Float64:
-		nt = FloatNode
-	case reflect.Bool:
-		nt = BoolNode
-	case reflect.Invalid:
-		nt = InvalidNode
-	default:
-		// Catch all NodeTypes that DO match a reflect.Type
-		nt = NodeType(rk)
-	}
-	return nt
 }
 
 func nodeTypeName(nt NodeType) (s string) {
@@ -146,10 +157,28 @@ func nodeTypeName(nt NodeType) (s string) {
 		s = "String"
 	case IntNode:
 		s = "Int"
-	case UIntNode:
+	case Int8Node:
+		s = "Int8"
+	case Int16Node:
+		s = "Int16"
+	case Int32Node:
+		s = "Int32"
+	case Int64Node:
+		s = "Int64"
+	case UintNode:
 		s = "UInt"
-	case FloatNode:
-		s = "Float"
+	case Uint8Node:
+		s = "Uint8"
+	case Uint16Node:
+		s = "Uint16"
+	case Uint32Node:
+		s = "Uint32"
+	case Uint64Node:
+		s = "Uint64"
+	case Float32Node:
+		s = "Float32"
+	case Float64Node:
+		s = "Float64"
 	case BoolNode:
 		s = "Bool"
 	case InvalidNode:

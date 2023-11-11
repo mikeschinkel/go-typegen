@@ -56,16 +56,43 @@ func (cb *CodeBuilder) Nodes() Nodes {
 
 func (cb *CodeBuilder) Build() {
 	cb.root = cb.marshalValue(cb.value)
+	if cb.NodeCount() == 0 {
+		// If the root value is not a container, and thus not yet registered, register
+		// the one value, so it can be converted in .String().
+		cb.register(cb.value, cb.root)
+	}
+}
+
+func (cb *CodeBuilder) NodeCount() int {
+	return len(cb.nodeMap)
+}
+
+func (cb *CodeBuilder) maybeCollapseNodeRef(n *Node) {
+	if n.Type != PointerNode {
+		goto end
+	}
+	if n.nodes[0].Type != RefNode {
+		goto end
+	}
+	// If it is a pointer and the first child is a RefNode, collapse the pointer's
+	// NodeRef to point to a real node and not a RefNode.
+	n.nodes[0] = n.nodes[0].NodeRef
+end:
 }
 
 func (cb *CodeBuilder) String() string {
 	var returnVar, returnType string
+	var prior *Node
+
 	g := NewGenerator(cb.omitPkg)
-	nodeCnt := cb.nodes.Len()
-	for i := 1; i < nodeCnt; i++ {
+	nodeCnt := cb.NodeCount()
+	for i := 1; i <= nodeCnt; i++ {
 		n := cb.nodes[i]
-		if n.Value.IsZero() {
-			continue
+		if i == 1 {
+			// If we are on the root node collapse NodeRef so that it won't skip generating
+			// code. If we did not do this it would output a `nil`, not output the value's
+			// expression.
+			cb.maybeCollapseNodeRef(n)
 		}
 		if n.Type == PointerNode {
 			if i < nodeCnt-1 {
@@ -81,6 +108,10 @@ func (cb *CodeBuilder) String() string {
 			returnVar = g.NodeVarname(n)
 			returnType = g.MaybeStripPackage(n.Value.Type().String())
 		}
+		if n.isPointedAtBy(prior) {
+			// n is pointed at by prior, so we've already output it
+			continue
+		}
 		g.WriteString(fmt.Sprintf("%s%s := ",
 			g.Indent,
 			g.NodeVarname(n),
@@ -94,6 +125,7 @@ func (cb *CodeBuilder) String() string {
 		for _, a := range g.Assignments {
 			g.WriteAssignment(a)
 		}
+		prior = n
 	}
 	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
 	g.WriteByte('}')
