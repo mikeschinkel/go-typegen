@@ -317,6 +317,7 @@ end:
 	return pointing
 }
 
+//goland:noinspection GoUnusedParameter
 func (g *Generator) Op(parent, node *Node) (op string) {
 	switch parent.Type {
 	case FieldNameNode, ElementNode:
