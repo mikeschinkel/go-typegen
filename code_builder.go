@@ -8,12 +8,7 @@ import (
 
 type refVal = reflect.Value
 
-type NodeMap map[reflect.Value]*Node
 type PointerMap map[uintptr]*Node
-
-func (m NodeMap) Len() int {
-	return len(m)
-}
 
 type CodeBuilder struct {
 	funcName string
@@ -61,6 +56,7 @@ func (cb *CodeBuilder) Build() {
 		// the one value, so it can be converted in .String().
 		cb.register(cb.value, cb.root)
 	}
+	cb.maybeReuniteNodes()
 }
 
 func (cb *CodeBuilder) NodeCount() int {
@@ -95,18 +91,18 @@ func (cb *CodeBuilder) String() string {
 			cb.maybeCollapseNodeRef(n)
 		}
 		if n.Type == PointerNode {
+			if returnVar == "" {
+				returnVar += "&" + g.NodeVarname(n)
+				returnType = g.maybeStripPackage(n.Value.Type().String())
+			}
 			if i < nodeCnt-1 {
 				i++
 				n = cb.nodes[i]
 			}
-			if returnVar == "" {
-				returnVar += "&" + g.NodeVarname(n)
-				returnType = "*" + g.MaybeStripPackage(n.Value.Type().String())
-			}
 		}
 		if returnVar == "" {
 			returnVar = g.NodeVarname(n)
-			returnType = g.MaybeStripPackage(n.Value.Type().String())
+			returnType = g.maybeStripPackage(n.Value.Type().String())
 		}
 		if n.isPointedAtBy(prior) {
 			// n is pointed at by prior, so we've already output it
@@ -120,12 +116,12 @@ func (cb *CodeBuilder) String() string {
 		g.WriteByte('\n')
 
 		// Record that this var has been generated
-		g.varMap[i] = struct{}{}
+		g.varMap[n.Index] = struct{}{}
 
-		for _, a := range g.Assignments {
-			g.WriteAssignment(a)
-		}
 		prior = n
+	}
+	for _, a := range g.Assignments {
+		g.WriteAssignment(a)
 	}
 	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
 	g.WriteByte('}')
@@ -231,6 +227,7 @@ end:
 
 func (cb *CodeBuilder) marshalPtr(rv refVal) (node *Node) {
 	var ref refVal
+
 	node, found := cb.isRegistered(rv)
 	if found {
 		goto end
@@ -310,20 +307,30 @@ end:
 }
 
 func (cb *CodeBuilder) findNodeMapKey(rv refVal) (node *Node, found bool) {
-	for k, n := range cb.nodeMap {
-		if !k.Equal(rv) {
+	var n *Node
+	var k reflect.Value
+
+	for k, n = range cb.nodeMap {
+		if k.Equal(rv) {
+			found = true
+			goto end
+		}
+		if rv.Kind() != reflect.Pointer {
 			continue
 		}
-		node = n
-		found = true
-		goto end
+		if k.Equal(rv.Elem()) {
+			found = true
+			goto end
+		}
 	}
 end:
+	if found {
+		node = n
+	}
 	return node, found
 }
 
 func (cb *CodeBuilder) isRegistered(rv refVal) (node *Node, found bool) {
-	//var index int
 
 	if rv.Kind() != reflect.Pointer {
 		node, found = cb.findNodeMapKey(rv)
@@ -338,10 +345,10 @@ func (cb *CodeBuilder) isRegistered(rv refVal) (node *Node, found bool) {
 	}
 
 	// Look for the value pointed to having already been registered
-	node, found = cb.findNodeMapKey(rv.Elem())
+	node, found = cb.findNodeMapKey(rv)
 	if found {
 		// If yes, create a RefNode for it
-		node = cb.newRefNode(node, rv.Elem())
+		node = cb.newRefNode(node, rv)
 	}
 
 end:
@@ -379,11 +386,7 @@ func (cb *CodeBuilder) sortedKeys(rv refVal) (keys []reflect.Value) {
 }
 
 func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
-	if !ref.IsValid() {
-		// We don't need to create a ref as it was already found to be registered
-		return node
-	}
-	n = NewNode(&NodeArgs{
+	return NewNode(&NodeArgs{
 		Name:        fmt.Sprintf("ref%d", node.Index),
 		NodeRef:     node,
 		Type:        RefNode,
@@ -391,5 +394,27 @@ func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 		Value:       ref,
 		Index:       node.Index,
 	})
-	return n
+}
+
+// maybeReuniteNodes looks for any pointer parents with children, and/or children with
+// no parents that match and connect them.
+func (cb *CodeBuilder) maybeReuniteNodes() {
+	pointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, node *Node) bool {
+		return node.Type == PointerNode
+	})
+	nonPointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, node *Node) bool {
+		return node.Type != PointerNode
+	})
+
+	for pi, p := range pointers {
+		for npi, np := range nonPointers {
+			if np.parent != nil {
+				continue
+			}
+			if !pi.Elem().Equal(npi) {
+				continue
+			}
+			np.parent = p
+		}
+	}
 }

@@ -36,3 +36,14 @@ func setReflectValueToNil(rv reflect.Value) {
 	*ifacePtr = nil
 end:
 }
+
+func filterMapFunc[M ~map[K]V, K comparable, V any](m M, match func(K, V) bool) M {
+	f := make(M, len(m))
+	for k, v := range m {
+		if !match(k, v) {
+			continue
+		}
+		f[k] = v
+	}
+	return f
+}

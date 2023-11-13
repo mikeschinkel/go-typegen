@@ -95,20 +95,24 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			value: &testStruct{},
 			want:  wantPtrValue(`*testStruct`, `testStruct{Int:0,String:"",}`),
 		},
-		//{
-		//	name:  "Struct with property pointing to itself",
-		//	value: recur,
-		//	want:  wantValue(`typegen.recur2Struct`, `1`),
-		//},
+		{
+			name:  "Struct with property pointing to itself",
+			value: recur,
+			want:  wantValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
+		},
+		{
+			name:  "Pointer to struct with property pointing to itself",
+			value: &recur,
+			want:  wantPtrValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
+		},
 		//{
 		//	name:  "Indirect Pointer to struct with property pointing to itself",
 		//	value: &recur2,
-		//	want:  wantValue(`*typegen.recur2Struct`, `1`),
-		//},
-		//{
-		//	name: "interface{}{}",
-		//	//value: Effectively as if interface{}{}
-		//	want: `nil`,
+		//	want: wantPtrValue(
+		//		`*recur2Struct`,
+		//		`recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{&var1,}%s  var1.recur = var2`,
+		//		"\n", "\n",
+		//	),
 		//},
 		//{
 		//	name:  "nil",
@@ -116,14 +120,9 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		//	want:  `nil`,
 		//},
 		//{
-		//	name:  "Pointer to struct with property pointing to itself",
-		//	value: &recur,
-		//	want:  wantValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1`, "&var1", "\n"),
-		//},
-		//{
-		//	name:  "Struct with property pointing to itself",
-		//	value: recur,
-		//	want:  wantValue("recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur := &var1`, "var1", "\n"),
+		//	name: "interface{}{}",
+		//	//value: Effectively as if interface{}{}
+		//	want: `nil`,
 		//},
 	}
 	for _, tt := range tests {

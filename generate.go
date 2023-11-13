@@ -2,6 +2,7 @@ package typegen
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -45,25 +46,28 @@ end:
 	return n.Varname()
 }
 
-func (g *Generator) MaybeStripPackage(name string) string {
+var pkgStripRE *regexp.Regexp
+
+func (g *Generator) maybeStripPackage(name string) string {
 	if name == "&" {
 		goto end
 	}
 	if len(name) == 0 {
 		goto end
 	}
-	if name[0] == '*' {
-		name = name[1:]
+	if !strings.Contains(name, ".") {
+		goto end
 	}
-	if strings.HasPrefix(name, g.omitPkg+".") {
-		name = name[len(g.omitPkg)+1:]
+	if pkgStripRE == nil {
+		pkgStripRE = regexp.MustCompile(fmt.Sprintf(`^(\W*)%s\.`, g.omitPkg))
 	}
+	name = pkgStripRE.ReplaceAllString(name, "$1")
 end:
 	return name
 }
 
 func (g *Generator) WriteCode(n *Node) {
-	n.Name = g.MaybeStripPackage(n.Name)
+	n.Name = g.maybeStripPackage(n.Name)
 	switch n.Type {
 	case RefNode:
 		g.RefNode(n)
@@ -196,44 +200,34 @@ func (g *Generator) MapValueNode(n *Node) {
 	panic("Implement me")
 }
 
-type Assignments []*Assignment
-type Assignment struct {
-	LHS string
-	RHS string
-}
-
 func (g *Generator) WriteAssignment(a *Assignment) {
-	g.WriteString(fmt.Sprintf("%s%s := %s\n", g.Indent, a.LHS, a.RHS))
+	g.WriteString(fmt.Sprintf("%s%s %s %s\n",
+		g.Indent,
+		a.LHS,
+		a.Op,
+		a.RHS,
+	))
 }
 
 func (g *Generator) recordAssignment(n *Node) {
-	parent := n.parent
+	var parent *Node
+	if n == nil {
+		// We are basically at the root
+		goto end
+	}
+	parent = n.parent
 	if parent == nil {
 		panic("Handle when node.Parent is nil")
 	}
 	switch parent.Type {
-	case FieldNameNode:
-		varName := g.NodeVarname(n)
-		g.Assignments = append(g.Assignments, &Assignment{
-			LHS: fmt.Sprintf("%s.%s", varName, parent.Name),
-			RHS: "&" + varName,
-		})
 	case PointerNode:
-		grandParent := parent.parent
-		if grandParent == nil {
-			// We are basically at the root
-			goto end
-		}
-		switch grandParent.Type {
-		case FieldNameNode:
-			varName := g.NodeVarname(n)
-			g.Assignments = append(g.Assignments, &Assignment{
-				LHS: fmt.Sprintf("%s.%s", varName, grandParent.Name),
-				RHS: "&" + varName,
-			})
-		default:
-			panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
-		}
+		g.recordAssignment(parent.parent)
+	case FieldNameNode, ElementNode:
+		g.Assignments = append(g.Assignments, &Assignment{
+			LHS: g.LHS(parent, n),
+			Op:  g.Op(parent, n),
+			RHS: g.RHS(parent, n),
+		})
 	default:
 		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
 	}
@@ -241,7 +235,8 @@ end:
 }
 
 func (g *Generator) RefNode(n *Node) {
-	if !g.varMap.HasVar(n.Index) {
+	node, isPtr, index := g.deref(n)
+	if !g.varMap.HasVar(index) {
 		// Var<Index> already been output, so we need to come back later and connect
 		// property with variable.
 		g.WriteString("nil")
@@ -249,7 +244,10 @@ func (g *Generator) RefNode(n *Node) {
 		goto end
 	}
 	// Write variable
-	g.WriteString(g.NodeVarname(n))
+	if isPtr {
+		g.WriteByte('&')
+	}
+	g.WriteString(g.NodeVarname(node))
 end:
 }
 
@@ -317,4 +315,56 @@ func (g *Generator) VarGenerated(n *Node) (pointing bool) {
 	pointing = g.varMap.HasVar(n.Index)
 end:
 	return pointing
+}
+
+func (g *Generator) Op(parent, node *Node) (op string) {
+	switch parent.Type {
+	case FieldNameNode, ElementNode:
+		op = "="
+	default:
+		op = ":="
+	}
+	return op
+}
+
+func (g *Generator) LHS(parent, node *Node) (lhs string) {
+	switch node.Type {
+	case RefNode:
+		lhs = g.LHS(parent, node.NodeRef)
+	default:
+		lhs = fmt.Sprintf("%s.%s", g.NodeVarname(parent.parent), parent.Name)
+	}
+	return lhs
+}
+
+func (g *Generator) RHS(parent, node *Node) (rhs string) {
+	switch node.Type {
+	case RefNode:
+		rhs = g.RHS(parent, node.NodeRef)
+	default:
+		rhs = "&" + g.NodeVarname(node)
+	}
+	return rhs
+}
+
+func (g *Generator) deref(n *Node) (_ *Node, isPtr bool, index int) {
+	var nr *Node
+	if n.NodeRef == nil {
+		goto end
+	}
+	nr = n.NodeRef
+	if nr.Type == PointerNode && nr.NodeRef.parent == nil {
+		nr.NodeRef.parent = nr
+	}
+	n, isPtr, index = g.deref(nr)
+	if n.parent != nil && n.parent.Type == PointerNode {
+		if n.parent.varname == "" {
+			n.parent.varname = n.varname
+		}
+		index = n.Index
+		n = n.parent
+		isPtr = true
+	}
+end:
+	return n, isPtr, index
 }
