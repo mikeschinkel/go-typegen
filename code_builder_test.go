@@ -35,16 +35,6 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		value any
 		want  string
 	}{
-		//{
-		//	name:  "nil",
-		//	value: nil,
-		//	want:  `nil`,
-		//},
-		//{
-		//	name: "interface{}{}",
-		//	//value: Effectively as if interface{}{}
-		//	want: `nil`,
-		//},
 		{
 			name:  "Simple string/int map",
 			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
@@ -105,6 +95,11 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			name:  "Pointer to struct with property pointing to itself",
 			value: &recur,
 			want:  wantPtrValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
+		},
+		{
+			name:  "nil",
+			value: nil,
+			want:  wantValue(`error`, `nil`),
 		},
 	}
 	for _, tt := range tests {

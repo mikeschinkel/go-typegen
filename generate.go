@@ -188,7 +188,8 @@ func (g *Generator) InterfaceNode(n *Node) {
 }
 
 func (g *Generator) InvalidNode(n *Node) {
-	panic("Implement me")
+	// TODO: Confirm this works in all cases.
+	g.WriteString("nil")
 }
 
 func (g *Generator) FieldNameNode(n *Node) {

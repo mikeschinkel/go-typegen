@@ -82,7 +82,7 @@ func (cb *CodeBuilder) String() string {
 			// If we are on the root node collapse NodeRef so that it won't skip generating
 			// code. If we did not do this it would output a `nil`, not output the value's
 			// expression.
-			// TODO can we elimate this?
+			// TODO can we eliminate this?
 			cb.maybeCollapseNodeRef(n)
 		}
 		if n.Type == PointerNode {
@@ -98,7 +98,10 @@ func (cb *CodeBuilder) String() string {
 		}
 		if returnVar == "" {
 			returnVar = g.NodeVarname(n)
-			returnType = g.maybeStripPackage(n.Value.Type().String())
+			returnType = "error" // error is a built-in type that can can be nil.
+			if n.Value.IsValid() {
+				returnType = g.maybeStripPackage(n.Value.Type().String())
+			}
 		}
 		if g.wasGenerated(n) {
 			// n is pointed at by prior, so we've already output it
