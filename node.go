@@ -90,22 +90,6 @@ func NewNode(args *NodeArgs) *Node {
 	}
 }
 
-// isPointedAtBy returns true if `n` is pointed at by `ptr`.
-func (n *Node) isPointedAtBy(ptr *Node) (is bool) {
-	if ptr == nil {
-		goto end
-	}
-	if ptr.Type != PointerNode {
-		goto end
-	}
-	if n != ptr.nodes[0] {
-		goto end
-	}
-	is = true
-end:
-	return is
-}
-
 func (n *Node) Varname() string {
 	return n.varname
 }
@@ -127,13 +111,6 @@ end:
 }
 
 func (n *Node) AddNode(node *Node) *Node {
-	if n.Type == PointerNode && n.NodeRef == nil && node.Type == RefNode {
-		// If adder node is a pointer, its NodeRef is empty, and the added node is a
-		// NodeRef, then the copy the added node's NodeRef point. This is needed because
-		// a struct for example will get wrapped by a NodeRef but its pointer node has no
-		// reference to the node it points to.
-		n.NodeRef = node.NodeRef
-	}
 	node.parent = n
 	n.nodes = append(n.nodes, node)
 	return n

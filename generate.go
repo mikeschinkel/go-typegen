@@ -12,28 +12,39 @@ type Generator struct {
 	Indent      string
 	Depth       int
 	omitPkg     string
-	varMap      VarMap
+	genMap      GenMap
 	Assignments Assignments
 	varnameCtr  int
-}
-type VarMap map[int]struct{}
-
-func (m VarMap) HasVar(varNo int) bool {
-	_, ok := m[varNo]
-	return ok
 }
 
 func NewGenerator(omitPkg string) *Generator {
 	return &Generator{
 		Indent:      "  ",
 		omitPkg:     omitPkg,
-		varMap:      make(VarMap),
+		genMap:      make(GenMap),
 		Assignments: make(Assignments, 0),
 	}
 }
 
+func (g *Generator) ParentVarname(n *Node) (s string) {
+	if n.parent == nil {
+		goto end
+	}
+	if n.parent.varname != "" {
+		s = n.parent.varname
+		goto end
+	}
+	s = g.ParentVarname(n.parent)
+end:
+	return s
+}
+
 func (g *Generator) NodeVarname(n *Node) string {
-	if n.Varname() != "" {
+	if n.varname != "" {
+		goto end
+	}
+	if n.Type == PointerNode {
+		n.SetVarname(g.NodeVarname(n.nodes[0]))
 		goto end
 	}
 	if n.NodeRef != nil {
@@ -43,7 +54,7 @@ func (g *Generator) NodeVarname(n *Node) string {
 	g.varnameCtr++
 	n.SetVarname(fmt.Sprintf("var%d", g.varnameCtr))
 end:
-	return n.Varname()
+	return n.varname
 }
 
 var pkgStripRE *regexp.Regexp
@@ -224,9 +235,9 @@ func (g *Generator) recordAssignment(n *Node) {
 		g.recordAssignment(parent.parent)
 	case FieldNameNode, ElementNode:
 		g.Assignments = append(g.Assignments, &Assignment{
-			LHS: g.LHS(parent, n),
-			Op:  g.Op(parent, n),
-			RHS: g.RHS(parent, n),
+			LHS: g.LHS(n),
+			Op:  g.Op(n),
+			RHS: g.RHS(n),
 		})
 	default:
 		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
@@ -235,19 +246,17 @@ end:
 }
 
 func (g *Generator) RefNode(n *Node) {
-	node, isPtr, index := g.deref(n)
-	if !g.varMap.HasVar(index) {
+	if !g.wasGenerated(n) {
 		// Var<Index> already been output, so we need to come back later and connect
 		// property with variable.
 		g.WriteString("nil")
 		g.recordAssignment(n)
 		goto end
 	}
-	// Write variable
-	if isPtr {
+	if n.NodeRef.Type == PointerNode {
 		g.WriteByte('&')
 	}
-	g.WriteString(g.NodeVarname(node))
+	g.WriteString(g.NodeVarname(n))
 end:
 }
 
@@ -312,14 +321,14 @@ func (g *Generator) VarGenerated(n *Node) (pointing bool) {
 	if n.Type != RefNode {
 		goto end
 	}
-	pointing = g.varMap.HasVar(n.Index)
+	pointing = g.wasGenerated(n)
 end:
 	return pointing
 }
 
 //goland:noinspection GoUnusedParameter
-func (g *Generator) Op(parent, node *Node) (op string) {
-	switch parent.Type {
+func (g *Generator) Op(node *Node) (op string) {
+	switch node.parent.Type {
 	case FieldNameNode, ElementNode:
 		op = "="
 	default:
@@ -328,44 +337,93 @@ func (g *Generator) Op(parent, node *Node) (op string) {
 	return op
 }
 
-func (g *Generator) LHS(parent, node *Node) (lhs string) {
-	switch node.Type {
-	case RefNode:
-		lhs = g.LHS(parent, node.NodeRef)
-	default:
-		lhs = fmt.Sprintf("%s.%s", g.NodeVarname(parent.parent), parent.Name)
-	}
-	return lhs
+func (g *Generator) LHS(node *Node) (lhs string) {
+	// This works for node.Type == RefNode, node.NodeRef.Type==PointerNode,
+	// node.NodeRef.varname="varN", and node.parent.Type==FieldNameNode.
+	// We'll need to handle others I am sure.
+	return fmt.Sprintf("%s.%s",
+		g.ParentVarname(node),
+		node.parent.Name,
+	)
+	//return fmt.Sprintf("%s.%s",
+	//	g.NodeVarname(node),
+	//	node.parent.Name,
+	//)
 }
 
-func (g *Generator) RHS(parent, node *Node) (rhs string) {
-	switch node.Type {
-	case RefNode:
-		rhs = g.RHS(parent, node.NodeRef)
-	default:
-		rhs = "&" + g.NodeVarname(node)
-	}
-	return rhs
+func (g *Generator) RHS(node *Node) (rhs string) {
+	// This works for node.Type == RefNode, node.NodeRef.Type==PointerNode,
+	// node.NodeRef.varname="varN", and node.parent.Type==FieldNameNode.
+	// We'll need to handle others I am sure.
+	return "&" + g.NodeVarname(node)
 }
 
 func (g *Generator) deref(n *Node) (_ *Node, isPtr bool, index int) {
-	var nr *Node
-	if n.NodeRef == nil {
+	switch {
+	case n.Type == RefNode && n.NodeRef != nil:
+		n, isPtr, index = g.deref(n.NodeRef)
 		goto end
-	}
-	nr = n.NodeRef
-	if nr.Type == PointerNode && nr.NodeRef.parent == nil {
-		nr.NodeRef.parent = nr
-	}
-	n, isPtr, index = g.deref(nr)
-	if n.parent != nil && n.parent.Type == PointerNode {
-		if n.parent.varname == "" {
-			n.parent.varname = n.varname
-		}
+
+	case n.Type == PointerNode && len(n.nodes) != 0:
+		n, isPtr, index = g.deref(n.nodes[0])
+		goto end
+
+	case n.NodeRef == nil && len(n.nodes) == 0:
+		goto end
+
+	case n.NodeRef == nil && n.nodes[0].Type == FieldNameNode:
+		goto end
+
+	case n.NodeRef == nil && n.nodes[0].Type == ElementNode:
+		goto end
+
+	case n.parent != nil && n.parent.Type == PointerNode:
 		index = n.Index
 		n = n.parent
 		isPtr = true
+
 	}
 end:
 	return n, isPtr, index
+}
+
+// wasGenerated returns true if the node has already been generated
+func (g *Generator) wasGenerated(node *Node) (generated bool) {
+
+	if len(g.genMap) == 0 {
+		goto end
+	}
+
+	_, generated = g.genMap[node.Index]
+	if generated {
+		goto end
+	}
+
+	if g.findGenNode(node) {
+		generated = true
+		goto end
+	}
+end:
+	return generated
+}
+
+func (g *Generator) findGenNode(n *Node) (gend bool) {
+	switch {
+	case n.Type == RefNode && n.NodeRef != nil:
+		gend = g.findGenNode(n.NodeRef)
+		goto end
+
+	case n.Type == PointerNode && len(n.nodes) != 0:
+		gend = g.findGenNode(n.nodes[0])
+		goto end
+
+	case n.NodeRef == nil && len(n.nodes) == 0:
+		goto end
+
+	case n.parent != nil && n.parent.Type == PointerNode:
+		gend = true
+
+	}
+end:
+	return gend
 }

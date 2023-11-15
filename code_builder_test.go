@@ -35,6 +35,16 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		value any
 		want  string
 	}{
+		//{
+		//	name:  "nil",
+		//	value: nil,
+		//	want:  `nil`,
+		//},
+		//{
+		//	name: "interface{}{}",
+		//	//value: Effectively as if interface{}{}
+		//	want: `nil`,
+		//},
 		{
 			name:  "Simple string/int map",
 			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
@@ -82,48 +92,20 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			want:  wantValue(`[]int`, `[]int{1,2,3,}`),
 		},
 		{
-			value: struct{}{},
-			want:  wantValue(`struct {}`, `struct {}{}`),
-		},
-		{
-			name:  "Simple struct",
-			value: testStruct{},
-			want:  wantValue(`testStruct`, `testStruct{Int:0,String:"",}`),
-		},
-		{
 			name:  "Pointer to simple struct",
 			value: &testStruct{},
 			want:  wantPtrValue(`*testStruct`, `testStruct{Int:0,String:"",}`),
 		},
 		{
-			name:  "Struct with property pointing to itself",
-			value: recur,
-			want:  wantValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
+			name:  "Pointer to struct with indirect property pointing to itself",
+			value: &recur2,
+			want:  wantPtrValue(`*recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{&var1,}%s  var1.recur = &var2`, "\n", "\n"),
 		},
 		{
 			name:  "Pointer to struct with property pointing to itself",
 			value: &recur,
 			want:  wantPtrValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
 		},
-		//{
-		//	name:  "Indirect Pointer to struct with property pointing to itself",
-		//	value: &recur2,
-		//	want: wantPtrValue(
-		//		`*recur2Struct`,
-		//		`recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{&var1,}%s  var1.recur = var2`,
-		//		"\n", "\n",
-		//	),
-		//},
-		//{
-		//	name:  "nil",
-		//	value: nil,
-		//	want:  `nil`,
-		//},
-		//{
-		//	name: "interface{}{}",
-		//	//value: Effectively as if interface{}{}
-		//	want: `nil`,
-		//},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

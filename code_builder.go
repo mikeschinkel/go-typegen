@@ -32,16 +32,10 @@ func NewCodeBuilder(value any, funcName string, omitPkg string) *CodeBuilder {
 		nodes:    make(Nodes, 1), // Zero element is unused so node.index==0 can represent invalid
 	}
 
-	//// If the value is a pointer to an interface{}, we want to get the interface.
-	//// Then we can use .Elem() to get to the concrete value that the interface holds.
-	//switch rv.Kind() {
-	//case reflect.Interface:
-	//	rv = rv.Elem() // Just dereference the interface.
-	//case reflect.Ptr:
-	//	if rv.Elem().Kind() == reflect.Interface {
-	//		rv = rv.Elem().Elem() // Twice .Elem(): one to dereference the pointer, one to get the interface value.
-	//	}
-	//}
+	if cb.value.Kind() == reflect.Struct {
+		panic("CodeBuilder currently does not support generating code for non-pointer structs. Pass a pointer to the struct instead.")
+	}
+
 	return cb
 }
 
@@ -78,7 +72,7 @@ end:
 
 func (cb *CodeBuilder) String() string {
 	var returnVar, returnType string
-	var prior *Node
+	var star string
 
 	g := NewGenerator(cb.omitPkg)
 	nodeCnt := cb.NodeCount()
@@ -88,23 +82,25 @@ func (cb *CodeBuilder) String() string {
 			// If we are on the root node collapse NodeRef so that it won't skip generating
 			// code. If we did not do this it would output a `nil`, not output the value's
 			// expression.
+			// TODO can we elimate this?
 			cb.maybeCollapseNodeRef(n)
 		}
 		if n.Type == PointerNode {
-			if returnVar == "" {
-				returnVar += "&" + g.NodeVarname(n)
-				returnType = g.maybeStripPackage(n.Value.Type().String())
-			}
 			if i < nodeCnt-1 {
 				i++
 				n = cb.nodes[i]
+				star = "*"
+			}
+			if returnVar == "" {
+				returnVar += "&" + g.NodeVarname(n)
+				returnType = star + g.maybeStripPackage(n.Value.Type().String())
 			}
 		}
 		if returnVar == "" {
 			returnVar = g.NodeVarname(n)
 			returnType = g.maybeStripPackage(n.Value.Type().String())
 		}
-		if n.isPointedAtBy(prior) {
+		if g.wasGenerated(n) {
 			// n is pointed at by prior, so we've already output it
 			continue
 		}
@@ -116,9 +112,8 @@ func (cb *CodeBuilder) String() string {
 		g.WriteByte('\n')
 
 		// Record that this var has been generated
-		g.varMap[n.Index] = struct{}{}
+		g.genMap[n.Index] = n
 
-		prior = n
 	}
 	for _, a := range g.Assignments {
 		g.WriteAssignment(a)
@@ -310,18 +305,35 @@ func (cb *CodeBuilder) findNodeMapKey(rv refVal) (node *Node, found bool) {
 	var n *Node
 	var k reflect.Value
 
+	// First look for direct reflect.Value matches
 	for k, n = range cb.nodeMap {
-		if k.Equal(rv) {
-			found = true
-			goto end
+		if rv.Kind() == reflect.Pointer {
+			continue
 		}
+		if !isSame(k, rv) {
+			continue
+		}
+		if len(n.nodes) == 0 {
+			continue
+		}
+		found = true
+		goto end
+	}
+
+	// Next look for ptr>reflect.value matching reflect.value
+	for k, n = range cb.nodeMap {
 		if rv.Kind() != reflect.Pointer {
 			continue
 		}
-		if k.Equal(rv.Elem()) {
-			found = true
-			goto end
+		if !isSame(k, rv.Elem()) {
+			continue
 		}
+		if len(n.nodes) == 0 {
+			continue
+		}
+		n = n.nodes[0]
+		found = true
+		goto end
 	}
 end:
 	if found {
@@ -399,11 +411,12 @@ func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 // maybeReuniteNodes looks for any pointer parents with children, and/or children with
 // no parents that match and connect them.
 func (cb *CodeBuilder) maybeReuniteNodes() {
-	pointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, node *Node) bool {
-		return node.Type == PointerNode
+
+	pointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, _ *Node) bool {
+		return value.Kind() == reflect.Pointer
 	})
-	nonPointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, node *Node) bool {
-		return node.Type != PointerNode
+	nonPointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, _ *Node) bool {
+		return value.Kind() != reflect.Pointer
 	})
 
 	for pi, p := range pointers {
@@ -411,10 +424,35 @@ func (cb *CodeBuilder) maybeReuniteNodes() {
 			if np.parent != nil {
 				continue
 			}
-			if !pi.Elem().Equal(npi) {
+			el := pi.Elem()
+			if el.Kind() != npi.Kind() {
+				continue
+			}
+			if el.Comparable() && !el.Equal(npi) {
+				continue
+			}
+			if !reflect.DeepEqual(el, npi) {
 				continue
 			}
 			np.parent = p
 		}
 	}
+}
+
+func isSame(v1, v2 reflect.Value) (same bool) {
+	if v1.Kind() == reflect.Pointer {
+		v1 = v1.Elem()
+	}
+	if v1.Kind() != v2.Kind() {
+		goto end
+	}
+	if v1.Comparable() && !v1.Equal(v2) {
+		goto end
+	}
+	if !reflect.DeepEqual(v1, v2) {
+		goto end
+	}
+	same = true
+end:
+	return same
 }
