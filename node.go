@@ -24,7 +24,6 @@ const (
 	Uint16Node     = NodeType(reflect.Uint16)
 	Uint32Node     = NodeType(reflect.Uint32)
 	Uint64Node     = NodeType(reflect.Uint64)
-	FloatNode      = NodeType(reflect.Float32)
 	Float32Node    = NodeType(reflect.Float32)
 	Float64Node    = NodeType(reflect.Float64)
 	BoolNode       = NodeType(reflect.Bool)
