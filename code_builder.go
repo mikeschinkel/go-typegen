@@ -71,46 +71,46 @@ end:
 }
 
 func (cb *CodeBuilder) String() string {
+	return cb.Generate()
+}
+
+// selectNode selects a node for use in Generate(). If it is a pointer it
+// dereferences it by selecting the next node in the list of .nodes and
+// increments and returns the index. It also returns if it was a pointer
+// so that Generate() can generate a pointer return value, if so.
+func (cb *CodeBuilder) selectNode(index int) (n *Node, _ int, wasPtr bool) {
+	n = cb.nodes[index]
+	if n.Type != PointerNode {
+		goto end
+	}
+	wasPtr = true
+	if index >= cb.NodeCount() {
+		goto end
+	}
+	index++
+	n = cb.nodes[index]
+end:
+	return n, index, wasPtr
+}
+
+func (cb *CodeBuilder) Generate() string {
 	var returnVar, returnType string
-	var star string
+	var n *Node
+	var wasPtr bool
 
 	g := NewGenerator(cb.omitPkg)
 	nodeCnt := cb.NodeCount()
 	for i := 1; i <= nodeCnt; i++ {
-		n := cb.nodes[i]
-		if i == 1 {
-			// If we are on the root node collapse NodeRef so that it won't skip generating
-			// code. If we did not do this it would output a `nil`, not output the value's
-			// expression.
-			// TODO can we eliminate this?
-			cb.maybeCollapseNodeRef(n)
-		}
-		if n.Type == PointerNode {
-			if i < nodeCnt-1 {
-				i++
-				n = cb.nodes[i]
-				star = "*"
-			}
-			if returnVar == "" {
-				returnVar += "&" + g.NodeVarname(n)
-				returnType = star + g.maybeStripPackage(n.Value.Type().String())
-			}
-		}
-		if returnVar == "" {
-			returnVar = g.NodeVarname(n)
-			returnType = "error" // error is a built-in type that can can be nil.
-			if n.Value.IsValid() {
-				returnType = g.maybeStripPackage(n.Value.Type().String())
-			}
-		}
+		n, i, wasPtr = cb.selectNode(i)
 		if g.wasGenerated(n) {
 			// n is pointed at by prior, so we've already output it
 			continue
 		}
-		g.WriteString(fmt.Sprintf("%s%s := ",
-			g.Indent,
-			g.NodeVarname(n),
-		))
+		if returnVar == "" {
+			returnVar, returnType = g.returnVarAndType(n, wasPtr)
+		}
+		g.WriteString(fmt.Sprintf("%s%s := ", g.Indent, g.NodeVarname(n)))
+		g.prefixLen = g.Builder.Len()
 		g.WriteCode(n)
 		g.WriteByte('\n')
 
@@ -189,6 +189,7 @@ func (cb *CodeBuilder) marshalSlice(rv refVal) (node *Node) {
 		childValue := cb.marshalValue(rv.Index(i))
 		childValue.Index = i
 		childValue.Name = fmt.Sprintf("Value %d", i)
+		childValue.resetDebugString()
 		child.AddNode(childValue)
 	}
 end:

@@ -15,6 +15,7 @@ type Generator struct {
 	genMap      GenMap
 	Assignments Assignments
 	varnameCtr  int
+	prefixLen   int
 }
 
 func NewGenerator(omitPkg string) *Generator {
@@ -79,6 +80,7 @@ end:
 
 func (g *Generator) WriteCode(n *Node) {
 	n.Name = g.maybeStripPackage(n.Name)
+	n.resetDebugString()
 	switch n.Type {
 	case RefNode:
 		g.RefNode(n)
@@ -247,17 +249,32 @@ end:
 }
 
 func (g *Generator) RefNode(n *Node) {
-	if !g.wasGenerated(n) {
-		// Var<Index> already been output, so we need to come back later and connect
-		// property with variable.
+	switch {
+	case g.Builder.Len() == g.prefixLen:
+		// Output has not been generated for any node so this is the first node and the
+		// node to which this node is a reference must have its code generated. Also,
+		// this path should only be taken once because if not we'll be in an infinite
+		// recursion. This can happen when a container contains a value that contains a
+		// pointer back to the original container.
+		g.WriteCode(n.NodeRef)
+
+	case !g.wasGenerated(n):
+		// Output has not been generated for this node which means it is being assigned
+		// to a property of a struct, or as an element of a map, slice or array (I think
+		// that is exhaustive of when this should run but there may be some other cases I
+		// have missed.) So just assign a nil and record that we need to generate an
+		// assignment of a pointer to the variable containing the value later.
 		g.WriteString("nil")
 		g.recordAssignment(n)
 		goto end
+
+	default:
+		if n.NodeRef.Type == PointerNode {
+			g.WriteByte('&')
+		}
+		g.WriteString(g.NodeVarname(n))
+
 	}
-	if n.NodeRef.Type == PointerNode {
-		g.WriteByte('&')
-	}
-	g.WriteString(g.NodeVarname(n))
 end:
 }
 
@@ -339,17 +356,7 @@ func (g *Generator) Op(node *Node) (op string) {
 }
 
 func (g *Generator) LHS(node *Node) (lhs string) {
-	// This works for node.Type == RefNode, node.NodeRef.Type==PointerNode,
-	// node.NodeRef.varname="varN", and node.parent.Type==FieldNameNode.
-	// We'll need to handle others I am sure.
-	return fmt.Sprintf("%s.%s",
-		g.ParentVarname(node),
-		node.parent.Name,
-	)
-	//return fmt.Sprintf("%s.%s",
-	//	g.NodeVarname(node),
-	//	node.parent.Name,
-	//)
+	return fmt.Sprintf("%s.%s", g.ParentVarname(node), node.parent.Name)
 }
 
 func (g *Generator) RHS(node *Node) (rhs string) {
@@ -400,7 +407,7 @@ func (g *Generator) wasGenerated(node *Node) (generated bool) {
 		goto end
 	}
 
-	if g.findGenNode(node) {
+	if g.findPointedToNode(node) {
 		generated = true
 		goto end
 	}
@@ -408,23 +415,43 @@ end:
 	return generated
 }
 
-func (g *Generator) findGenNode(n *Node) (gend bool) {
+// findPointedToNode returns true when the node passed is found with a parent
+// whose type is a pointer. It dereferences both Ref and Pointer nodes before
+// looking for a match.
+func (g *Generator) findPointedToNode(n *Node) (found bool) {
 	switch {
 	case n.Type == RefNode && n.NodeRef != nil:
-		gend = g.findGenNode(n.NodeRef)
+		found = g.findPointedToNode(n.NodeRef)
 		goto end
 
 	case n.Type == PointerNode && len(n.nodes) != 0:
-		gend = g.findGenNode(n.nodes[0])
+		found = g.findPointedToNode(n.nodes[0])
 		goto end
 
 	case n.NodeRef == nil && len(n.nodes) == 0:
 		goto end
 
 	case n.parent != nil && n.parent.Type == PointerNode:
-		gend = true
+		found = true
 
 	}
 end:
-	return gend
+	return found
+}
+
+// returnVarAndType will return the return variable and its type for the node received.
+func (g *Generator) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
+	if isPtr {
+		rv += "&" + g.NodeVarname(n)
+		rt = "*" + g.maybeStripPackage(n.Value.Type().String())
+		goto end
+	}
+	rv = g.NodeVarname(n)
+	rt = "error" // error is a built-in type that can can be nil.
+	if n.Value.IsValid() {
+		// Get the return type, and with `.omitPkg` package stripped, if applicable
+		rt = g.maybeStripPackage(n.Value.Type().String())
+	}
+end:
+	return rv, rt
 }
