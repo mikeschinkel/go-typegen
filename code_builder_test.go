@@ -36,6 +36,11 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		want  string
 	}{
 		{
+			name:  "nil",
+			value: nil,
+			want:  wantValue(`error`, `nil`),
+		},
+		{
 			name:  "Simple string/int map",
 			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
 			// Keys will be sorted alphabetically on output
@@ -97,9 +102,14 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			want:  wantPtrValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
 		},
 		{
-			name:  "nil",
-			value: nil,
-			want:  wantValue(`error`, `nil`),
+			name:  "Empty array",
+			value: [0]int{},
+			want:  wantValue(`[0]int`, `[0]int{}`),
+		},
+		{
+			name:  "Simple int array",
+			value: [3]int{1, 2, 3},
+			want:  wantValue(`[3]int`, `[3]int{1,2,3,}`),
 		},
 	}
 	for _, tt := range tests {

@@ -109,7 +109,7 @@ func (cb *CodeBuilder) Generate() string {
 		if returnVar == "" {
 			returnVar, returnType = g.returnVarAndType(n, wasPtr)
 		}
-		g.WriteString(fmt.Sprintf("%s%s := ", g.Indent, g.NodeVarname(n)))
+		g.WriteString(fmt.Sprintf("%s%s := ", g.Indent, g.nodeVarname(n)))
 		g.prefixLen = g.Builder.Len()
 		g.WriteCode(n)
 		g.WriteByte('\n')
@@ -119,7 +119,7 @@ func (cb *CodeBuilder) Generate() string {
 
 	}
 	for _, a := range g.Assignments {
-		g.WriteAssignment(a)
+		g.writeAssignment(a)
 	}
 	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
 	g.WriteByte('}')
@@ -143,16 +143,18 @@ end:
 func (cb *CodeBuilder) marshalContainers(rv refVal) (node *Node) {
 
 	switch rv.Kind() {
+	case reflect.Ptr:
+		node = cb.marshalPtr(rv)
 	case reflect.Struct:
 		node = cb.marshalStruct(rv)
 	case reflect.Slice:
 		node = cb.marshalSlice(rv)
 	case reflect.Map:
 		node = cb.marshalMap(rv)
-	case reflect.Ptr:
-		node = cb.marshalPtr(rv)
 	case reflect.Interface:
 		node = cb.marshalInterface(rv)
+	case reflect.Array:
+		node = cb.marshalArray(rv)
 	default:
 		goto end
 	}
@@ -160,17 +162,30 @@ end:
 	return node
 }
 
+// marshalArray marshals an array value to create a Node
+func (cb *CodeBuilder) marshalArray(rv refVal) (node *Node) {
+	return cb.marshalElements(rv, func() string {
+		return fmt.Sprintf("[%d]%s", rv.Len(), rv.Type().Elem())
+	})
+}
+
+// marshalSlice marshals a slice value to create a Node
 func (cb *CodeBuilder) marshalSlice(rv refVal) (node *Node) {
-	var name string
+	return cb.marshalElements(rv, func() string {
+		return fmt.Sprintf("[]%s", rv.Type().Elem())
+	})
+}
+
+// marshalElements marshals both array and slice values to create Nodes
+func (cb *CodeBuilder) marshalElements(rv refVal, nameFunc func() string) (node *Node) {
 	var ref refVal
 
 	node, found := cb.isRegistered(rv)
 	if found {
 		goto end
 	}
-	name = fmt.Sprintf("[]%s", rv.Type().Elem())
 	node = NewNode(&NodeArgs{
-		Name:        name,
+		Name:        nameFunc(),
 		CodeBuilder: cb,
 		Value:       rv,
 	})

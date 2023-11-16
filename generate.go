@@ -27,57 +27,6 @@ func NewGenerator(omitPkg string) *Generator {
 	}
 }
 
-func (g *Generator) ParentVarname(n *Node) (s string) {
-	if n.parent == nil {
-		goto end
-	}
-	if n.parent.varname != "" {
-		s = n.parent.varname
-		goto end
-	}
-	s = g.ParentVarname(n.parent)
-end:
-	return s
-}
-
-func (g *Generator) NodeVarname(n *Node) string {
-	if n.varname != "" {
-		goto end
-	}
-	if n.Type == PointerNode {
-		n.SetVarname(g.NodeVarname(n.nodes[0]))
-		goto end
-	}
-	if n.NodeRef != nil {
-		n.SetVarname(g.NodeVarname(n.NodeRef))
-		goto end
-	}
-	g.varnameCtr++
-	n.SetVarname(fmt.Sprintf("var%d", g.varnameCtr))
-end:
-	return n.varname
-}
-
-var pkgStripRE *regexp.Regexp
-
-func (g *Generator) maybeStripPackage(name string) string {
-	if name == "&" {
-		goto end
-	}
-	if len(name) == 0 {
-		goto end
-	}
-	if !strings.Contains(name, ".") {
-		goto end
-	}
-	if pkgStripRE == nil {
-		pkgStripRE = regexp.MustCompile(fmt.Sprintf(`^(\W*)%s\.`, g.omitPkg))
-	}
-	name = pkgStripRE.ReplaceAllString(name, "$1")
-end:
-	return name
-}
-
 func (g *Generator) WriteCode(n *Node) {
 	n.Name = g.maybeStripPackage(n.Name)
 	n.resetDebugString()
@@ -141,6 +90,36 @@ func (g *Generator) WriteCode(n *Node) {
 	}
 }
 
+func (g *Generator) RefNode(n *Node) {
+	switch {
+	case g.Builder.Len() == g.prefixLen:
+		// Output has not been generated for any node so this is the first node and the
+		// node to which this node is a reference must have its code generated. Also,
+		// this path should only be taken once because if not we'll be in an infinite
+		// recursion. This can happen when a container contains a value that contains a
+		// pointer back to the original container.
+		g.WriteCode(n.NodeRef)
+
+	case !g.wasGenerated(n):
+		// Output has not been generated for this node which means it is being assigned
+		// to a property of a struct, or as an element of a map, slice or array (I think
+		// that is exhaustive of when this should run but there may be some other cases I
+		// have missed.) So just assign a nil and record that we need to generate an
+		// assignment of a pointer to the variable containing the value later.
+		g.WriteString("nil")
+		g.recordAssignment(n)
+		goto end
+
+	default:
+		if n.NodeRef.Type == PointerNode {
+			g.WriteByte('&')
+		}
+		g.WriteString(g.nodeVarname(n))
+
+	}
+end:
+}
+
 func (g *Generator) Int8Node(n *Node) {
 	g.WriteString(fmt.Sprintf("int8(%d)", n.Value.Int()))
 }
@@ -181,10 +160,6 @@ func (g *Generator) Float64Node(n *Node) {
 	g.WriteString(fmt.Sprintf("float64(%f)", n.Value.Float()))
 }
 
-func (g *Generator) ArrayNode(n *Node) {
-	panic("Implement me")
-}
-
 func (g *Generator) InterfaceNode(n *Node) {
 	panic("Implement me")
 }
@@ -212,70 +187,6 @@ func (g *Generator) MapKeyNode(n *Node) {
 
 func (g *Generator) MapValueNode(n *Node) {
 	panic("Implement me")
-}
-
-func (g *Generator) WriteAssignment(a *Assignment) {
-	g.WriteString(fmt.Sprintf("%s%s %s %s\n",
-		g.Indent,
-		a.LHS,
-		a.Op,
-		a.RHS,
-	))
-}
-
-func (g *Generator) recordAssignment(n *Node) {
-	var parent *Node
-	if n == nil {
-		// We are basically at the root
-		goto end
-	}
-	parent = n.parent
-	if parent == nil {
-		panic("Handle when node.Parent is nil")
-	}
-	switch parent.Type {
-	case PointerNode:
-		g.recordAssignment(parent.parent)
-	case FieldNameNode, ElementNode:
-		g.Assignments = append(g.Assignments, &Assignment{
-			LHS: g.LHS(n),
-			Op:  g.Op(n),
-			RHS: g.RHS(n),
-		})
-	default:
-		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
-	}
-end:
-}
-
-func (g *Generator) RefNode(n *Node) {
-	switch {
-	case g.Builder.Len() == g.prefixLen:
-		// Output has not been generated for any node so this is the first node and the
-		// node to which this node is a reference must have its code generated. Also,
-		// this path should only be taken once because if not we'll be in an infinite
-		// recursion. This can happen when a container contains a value that contains a
-		// pointer back to the original container.
-		g.WriteCode(n.NodeRef)
-
-	case !g.wasGenerated(n):
-		// Output has not been generated for this node which means it is being assigned
-		// to a property of a struct, or as an element of a map, slice or array (I think
-		// that is exhaustive of when this should run but there may be some other cases I
-		// have missed.) So just assign a nil and record that we need to generate an
-		// assignment of a pointer to the variable containing the value later.
-		g.WriteString("nil")
-		g.recordAssignment(n)
-		goto end
-
-	default:
-		if n.NodeRef.Type == PointerNode {
-			g.WriteByte('&')
-		}
-		g.WriteString(g.NodeVarname(n))
-
-	}
-end:
 }
 
 func (g *Generator) StringNode(n *Node) {
@@ -311,7 +222,15 @@ func (g *Generator) MapNode(n *Node) {
 	g.WriteByte('}')
 }
 
+func (g *Generator) ArrayNode(n *Node) {
+	g.nodeElements(n)
+}
+
 func (g *Generator) SliceNode(n *Node) {
+	g.nodeElements(n)
+}
+
+func (g *Generator) nodeElements(n *Node) {
 	g.WriteString(n.Name)
 	g.WriteByte('{')
 	for _, node := range n.nodes {
@@ -344,8 +263,39 @@ end:
 	return pointing
 }
 
+func (g *Generator) parentVarname(n *Node) (s string) {
+	if n.parent == nil {
+		goto end
+	}
+	if n.parent.varname != "" {
+		s = n.parent.varname
+		goto end
+	}
+	s = g.parentVarname(n.parent)
+end:
+	return s
+}
+
+func (g *Generator) nodeVarname(n *Node) string {
+	if n.varname != "" {
+		goto end
+	}
+	if n.Type == PointerNode {
+		n.SetVarname(g.nodeVarname(n.nodes[0]))
+		goto end
+	}
+	if n.NodeRef != nil {
+		n.SetVarname(g.nodeVarname(n.NodeRef))
+		goto end
+	}
+	g.varnameCtr++
+	n.SetVarname(fmt.Sprintf("var%d", g.varnameCtr))
+end:
+	return n.varname
+}
+
 //goland:noinspection GoUnusedParameter
-func (g *Generator) Op(node *Node) (op string) {
+func (g *Generator) assignOp(node *Node) (op string) {
 	switch node.parent.Type {
 	case FieldNameNode, ElementNode:
 		op = "="
@@ -355,44 +305,15 @@ func (g *Generator) Op(node *Node) (op string) {
 	return op
 }
 
-func (g *Generator) LHS(node *Node) (lhs string) {
-	return fmt.Sprintf("%s.%s", g.ParentVarname(node), node.parent.Name)
+func (g *Generator) lhs(node *Node) (lhs string) {
+	return fmt.Sprintf("%s.%s", g.parentVarname(node), node.parent.Name)
 }
 
-func (g *Generator) RHS(node *Node) (rhs string) {
+func (g *Generator) rhs(node *Node) (rhs string) {
 	// This works for node.Type == RefNode, node.NodeRef.Type==PointerNode,
 	// node.NodeRef.varname="varN", and node.parent.Type==FieldNameNode.
 	// We'll need to handle others I am sure.
-	return "&" + g.NodeVarname(node)
-}
-
-func (g *Generator) deref(n *Node) (_ *Node, isPtr bool, index int) {
-	switch {
-	case n.Type == RefNode && n.NodeRef != nil:
-		n, isPtr, index = g.deref(n.NodeRef)
-		goto end
-
-	case n.Type == PointerNode && len(n.nodes) != 0:
-		n, isPtr, index = g.deref(n.nodes[0])
-		goto end
-
-	case n.NodeRef == nil && len(n.nodes) == 0:
-		goto end
-
-	case n.NodeRef == nil && n.nodes[0].Type == FieldNameNode:
-		goto end
-
-	case n.NodeRef == nil && n.nodes[0].Type == ElementNode:
-		goto end
-
-	case n.parent != nil && n.parent.Type == PointerNode:
-		index = n.Index
-		n = n.parent
-		isPtr = true
-
-	}
-end:
-	return n, isPtr, index
+	return "&" + g.nodeVarname(node)
 }
 
 // wasGenerated returns true if the node has already been generated
@@ -442,11 +363,11 @@ end:
 // returnVarAndType will return the return variable and its type for the node received.
 func (g *Generator) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
 	if isPtr {
-		rv += "&" + g.NodeVarname(n)
+		rv += "&" + g.nodeVarname(n)
 		rt = "*" + g.maybeStripPackage(n.Value.Type().String())
 		goto end
 	}
-	rv = g.NodeVarname(n)
+	rv = g.nodeVarname(n)
 	rt = "error" // error is a built-in type that can can be nil.
 	if n.Value.IsValid() {
 		// Get the return type, and with `.omitPkg` package stripped, if applicable
@@ -454,4 +375,58 @@ func (g *Generator) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
 	}
 end:
 	return rv, rt
+}
+
+func (g *Generator) writeAssignment(a *Assignment) {
+	g.WriteString(fmt.Sprintf("%s%s %s %s\n",
+		g.Indent,
+		a.LHS,
+		a.Op,
+		a.RHS,
+	))
+}
+
+func (g *Generator) recordAssignment(n *Node) {
+	var parent *Node
+	if n == nil {
+		// We are basically at the root
+		goto end
+	}
+	parent = n.parent
+	if parent == nil {
+		panic("Handle when node.Parent is nil")
+	}
+	switch parent.Type {
+	case PointerNode:
+		g.recordAssignment(parent.parent)
+	case FieldNameNode, ElementNode:
+		g.Assignments = append(g.Assignments, &Assignment{
+			LHS: g.lhs(n),
+			Op:  g.assignOp(n),
+			RHS: g.rhs(n),
+		})
+	default:
+		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
+	}
+end:
+}
+
+var pkgStripRE *regexp.Regexp
+
+func (g *Generator) maybeStripPackage(name string) string {
+	if name == "&" {
+		goto end
+	}
+	if len(name) == 0 {
+		goto end
+	}
+	if !strings.Contains(name, ".") {
+		goto end
+	}
+	if pkgStripRE == nil {
+		pkgStripRE = regexp.MustCompile(fmt.Sprintf(`^(\W*)%s\.`, g.omitPkg))
+	}
+	name = pkgStripRE.ReplaceAllString(name, "$1")
+end:
+	return name
 }
