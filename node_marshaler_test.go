@@ -133,9 +133,10 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := typegen.NewNodeMarshaler(tt.value, "getData", "typegen_test")
-			m.Build()
-			got := m.Generate()
+			m := typegen.NewNodeMarshaler(tt.value)
+			nodes := m.Marshal()
+			g := typegen.NewCodeGenerator("getData", "typegen_test", nodes)
+			got := g.Generate()
 			assert.Equal(t, tt.want, got)
 		})
 	}

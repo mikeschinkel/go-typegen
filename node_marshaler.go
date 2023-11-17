@@ -7,22 +7,18 @@ import (
 )
 
 type NodeMarshaler struct {
-	funcName string
 	value    reflect.Value
 	original any
 	nodeMap  NodeMap
 	nodes    Nodes
 	ptrMap   PointerMap
 	root     *Node
-	omitPkg  string
 }
 
-func NewNodeMarshaler(value any, funcName string, omitPkg string) *NodeMarshaler {
+func NewNodeMarshaler(value any) *NodeMarshaler {
 	cb := &NodeMarshaler{
 		original: value,
 		value:    reflect.ValueOf(value),
-		funcName: funcName,
-		omitPkg:  omitPkg,
 		nodeMap:  make(NodeMap),
 		ptrMap:   make(PointerMap),
 		nodes:    make(Nodes, 1), // Zero element is unused so node.index==0 can represent invalid
@@ -39,7 +35,7 @@ func (m *NodeMarshaler) Nodes() Nodes {
 	return m.nodes
 }
 
-func (m *NodeMarshaler) Build() Nodes {
+func (m *NodeMarshaler) Marshal() Nodes {
 	m.root = m.marshalValue(m.value)
 
 	if m.NodeCount() == 0 {
@@ -57,62 +53,6 @@ func (m *NodeMarshaler) Build() Nodes {
 
 func (m *NodeMarshaler) NodeCount() int {
 	return len(m.nodeMap)
-}
-
-func (m *NodeMarshaler) String() string {
-	return m.Generate()
-}
-
-// selectNode selects a node for use in Generate(). If it is a pointer it
-// dereferences it by selecting the next node in the list of .nodes and
-// increments and returns the index. It also returns if it was a pointer
-// so that Generate() can generate a pointer return value, if so.
-func (m *NodeMarshaler) selectNode(index int) (n *Node, _ int, wasPtr bool) {
-	n = m.nodes[index]
-	if n.Type != PointerNode {
-		goto end
-	}
-	wasPtr = true
-	if index >= m.NodeCount() {
-		goto end
-	}
-	index++
-	n = m.nodes[index]
-end:
-	return n, index, wasPtr
-}
-
-func (m *NodeMarshaler) Generate() string {
-	var returnVar, returnType string
-	var n *Node
-	var wasPtr bool
-
-	g := NewCodeGenerator(m.omitPkg)
-	nodeCnt := m.NodeCount()
-	for i := 1; i <= nodeCnt; i++ {
-		n, i, wasPtr = m.selectNode(i)
-		if g.wasGenerated(n) {
-			// n is pointed at by prior, so we've already output it
-			continue
-		}
-		if returnVar == "" {
-			returnVar, returnType = g.returnVarAndType(n, wasPtr)
-		}
-		g.WriteString(fmt.Sprintf("%s%s := ", g.Indent, g.nodeVarname(n)))
-		g.prefixLen = g.Builder.Len()
-		g.WriteCode(n)
-		g.WriteByte('\n')
-
-		// Record that this var has been generated
-		g.genMap[n.Index] = n
-
-	}
-	for _, a := range g.assignments {
-		g.writeAssignment(a)
-	}
-	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
-	g.WriteByte('}')
-	return fmt.Sprintf("func %s() %s {\n%s", m.funcName, returnType, g.String())
 }
 
 func (m *NodeMarshaler) marshalValue(rv reflect.Value) (node *Node) {

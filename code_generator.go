@@ -49,19 +49,87 @@ type CodeGenerator struct {
 	// container property, are as a variable to be references if the code was already
 	// generated.
 	prefixLen int
+
+	nodes    Nodes
+	funcName string
 }
 
 // NewCodeGenerator instantiates a new *CodeGenerator object with one param; the package
 // name to omit from code generation which should be the package the code will be
 // used within, e.g. "typegen_test" if the output is to be used for tests for the
 // `typegen` package.
-func NewCodeGenerator(omitPkg string) *CodeGenerator {
+func NewCodeGenerator(funcName, omitPkg string, nodes Nodes) *CodeGenerator {
 	return &CodeGenerator{
 		Indent:      "  ",
 		omitPkg:     omitPkg,
+		funcName:    funcName,
+		nodes:       nodes,
 		genMap:      make(GenMap),
 		assignments: make(Assignments, 0),
 	}
+}
+
+func (g *CodeGenerator) NodeCount() int {
+	return len(g.nodes) - 1
+}
+
+// selectNode selects a node for use in Generate(). If it is a pointer it
+// dereferences it by selecting the next node in the list of .nodes and
+// increments and returns the index. It also returns if it was a pointer
+// so that Generate() can generate a pointer return value, if so.
+func (g *CodeGenerator) selectNode(index int) (n *Node, _ int, wasPtr bool) {
+	n = g.nodes[index]
+	if n.Type != PointerNode {
+		goto end
+	}
+	wasPtr = true
+	if index >= g.NodeCount() {
+		goto end
+	}
+	index++
+	n = g.nodes[index]
+end:
+	return n, index, wasPtr
+}
+
+func (g *CodeGenerator) String() string {
+	return g.Generate()
+}
+
+func (g *CodeGenerator) Generate() string {
+	var returnVar, returnType string
+	var n *Node
+	var wasPtr bool
+
+	nodeCnt := g.NodeCount()
+	for i := 1; i <= nodeCnt; i++ {
+		n, i, wasPtr = g.selectNode(i)
+		if g.wasGenerated(n) {
+			// n is pointed at by prior, so we've already output it
+			continue
+		}
+		if returnVar == "" {
+			returnVar, returnType = g.returnVarAndType(n, wasPtr)
+		}
+		g.WriteString(fmt.Sprintf("%s%s := ", g.Indent, g.nodeVarname(n)))
+		g.prefixLen = g.Builder.Len()
+		g.WriteCode(n)
+		g.WriteByte('\n')
+
+		// Record that this var has been generated
+		g.genMap[n.Index] = n
+
+	}
+	for _, a := range g.assignments {
+		g.writeAssignment(a)
+	}
+	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
+	g.WriteByte('}')
+	return fmt.Sprintf("func %s() %s {\n%s",
+		g.funcName,
+		returnType,
+		g.Builder.String(),
+	)
 }
 
 // WriteCode accepts a *Node and writes code to the embedded strings.Builder that
