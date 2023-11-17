@@ -33,7 +33,7 @@ func NewCodeBuilder(value any, funcName string, omitPkg string) *CodeBuilder {
 	}
 
 	if cb.value.Kind() == reflect.Struct {
-		panic("CodeBuilder currently does not support generating code for non-pointer structs. Pass a pointer to the struct instead.")
+		panic("CodeBuilder currently does not support generating code for non-pointer structs (and probably never will.) Pass a pointer to the struct instead.")
 	}
 
 	return cb
