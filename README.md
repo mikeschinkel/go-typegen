@@ -19,9 +19,9 @@ func main() {
   funcName := "getData"
   // Replace w/package name where you will use getdata() func.
   omitPkg := "typegen_test"
-  nb := typegen.NewNodeBuilder(value, funcName, omitPkg)
-  nb.Build()
-  code := nb.Generate()
+  m := typegen.NewNodeMarshaler(value, funcName, omitPkg)
+  m.Build()
+  code := m.Generate()
   println(code)
 }
 ```

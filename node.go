@@ -8,12 +8,12 @@ import (
 type Nodes []*Node
 
 type NodeArgs struct {
-	Name        string
-	NodeRef     *Node
-	Type        NodeType
-	NodeBuilder *NodeBuilder
-	Value       reflect.Value
-	Index       int
+	Name      string
+	NodeRef   *Node
+	Type      NodeType
+	marshaler *NodeMarshaler
+	Value     reflect.Value
+	Index     int
 }
 
 type Node struct {
@@ -24,7 +24,7 @@ type Node struct {
 	Name        string
 	parent      *Node
 	nodes       Nodes
-	nodeBuilder *NodeBuilder
+	marshaler   *NodeMarshaler
 	Indent      string
 	Index       int
 	varname     string
@@ -36,13 +36,13 @@ func NewNode(args *NodeArgs) (n *Node) {
 		args.Type = NodeType(args.Value.Kind())
 	}
 	n = &Node{
-		Name:        args.Name,
-		Type:        args.Type,
-		NodeRef:     args.NodeRef,
-		nodes:       make(Nodes, 0),
-		nodeBuilder: args.NodeBuilder,
-		Value:       args.Value,
-		Index:       args.Index,
+		Name:      args.Name,
+		Type:      args.Type,
+		NodeRef:   args.NodeRef,
+		nodes:     make(Nodes, 0),
+		marshaler: args.marshaler,
+		Value:     args.Value,
+		Index:     args.Index,
 	}
 	n.resetDebugString()
 	return n
