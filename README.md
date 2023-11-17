@@ -21,8 +21,8 @@ func main() {
   omitPkg := "typegen_test"
   m := typegen.NewNodeMarshaler(value)
   nodes := m.Marshal()
-  g := typegen.NewCodeGenerator(funcName, omitPkg, nodes)
-  code := g.Generate()
+  b := typegen.NewCodeBuilder(funcName, omitPkg, nodes)
+  code := b.String()
   println(code)
 }
 ```
