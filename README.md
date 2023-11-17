@@ -1,25 +1,52 @@
 # go-typegen
 Simple generator of Golang code to instantiate a type given an instantiated object. 
 
-Use-case is to create type instantiation code for use in unit testing.
+## Intended Use-case 
+
+To create type instantiation code for use in unit testing from within code that generates over complex objects that would be hard to manually convert to use in testing.
+
+**_NOTE:_** While good testing practices create tests with small data targeted specific edge-cases, `typegen` is not intended for typical unit testing. `typegen` is for diagnosing a bug in a huge data structure where it is hard to determine what part of the data is causing error. Perfect examples for this are heavily recursive data structures, which typegen should handle with aplomb. 
 
 ## Usage
 
 ```go
-value := map[string]int{"Foo": 1, "Bar": 2, "Baz": 3} 
-cb := typegen.NewCodeBuilder()
-cb.Prettify = true
-code := cb.Marshal(value)
-println(code)  // Prints: map[string]int{"Bar":2,"Baz":3,"Foo":1,} 
+package main
+
+import "github.com/mikeschinkel/go-typegen"
+
+func main() {
+	value := []int{1, 2, 3}
+	funcName := "getData"
+	// Replace w/package name where you will use getdata() func.
+	omitPkg := "typegen_test"
+	cb := typegen.NewCodeBuilder(value, funcName, omitPkg)
+	cb.Build()
+	code := cb.Generate()
+	println(code)
+}
 ```
+The above code will print the following:
+```go
+func getData() []int {
+  var1 := []int{1,2,3,}
+  return var1
+}
+```
+
+See it run [in the playground](https://goplay.tools/snippet/7SOrqjjpQTj).
 
 ## Stability
 This is brand new and likely has many rough edges. 
 
 However, I'd like to make it robust so if you find issues either submit a PR or a bug report, please.
 
-## Roadmap
-Prettification coming soon
+## FAQ
+
+- Q: What not just use `fmt.Sprintf("%#v", value)`?  
+- A: Because it does not recurse through complex structures.
+----
+- Q: Your question goes [here](https://github.com/mikeschinkel/go-typegen/issues/new).
+- A: ???
 
 ## License
 Apache 2.0
