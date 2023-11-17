@@ -45,29 +45,20 @@ func (cb *CodeBuilder) Nodes() Nodes {
 
 func (cb *CodeBuilder) Build() {
 	cb.root = cb.marshalValue(cb.value)
+
 	if cb.NodeCount() == 0 {
 		// If the root value is not a container, and thus not yet registered, register
 		// the one value, so it can be converted in .String().
 		cb.register(cb.value, cb.root)
 	}
+
+	// Ensure the root node is not duplicated if referenced elsewhere by making sure
+	// all nodes are connected.
 	cb.maybeReuniteNodes()
 }
 
 func (cb *CodeBuilder) NodeCount() int {
 	return len(cb.nodeMap)
-}
-
-func (cb *CodeBuilder) maybeCollapseNodeRef(n *Node) {
-	if n.Type != PointerNode {
-		goto end
-	}
-	if n.nodes[0].Type != RefNode {
-		goto end
-	}
-	// If it is a pointer and the first child is a RefNode, collapse the pointer's
-	// NodeRef to point to a real node and not a RefNode.
-	n.nodes[0] = n.nodes[0].NodeRef
-end:
 }
 
 func (cb *CodeBuilder) String() string {
