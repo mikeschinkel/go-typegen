@@ -49,16 +49,6 @@ func (g *Generator) WriteCode(n *Node) {
 		g.BoolNode(n)
 	case InvalidNode:
 		g.InvalidNode(n)
-	case FieldNameNode:
-		g.FieldNameNode(n)
-	case FieldValueNode:
-		g.FieldValueNode(n)
-	case ElementNode:
-		g.ElementNode(n)
-	case MapKeyNode:
-		g.MapKeyNode(n)
-	case MapValueNode:
-		g.MapValueNode(n)
 	case SliceNode:
 		g.SliceNode(n)
 
@@ -169,26 +159,6 @@ func (g *Generator) InvalidNode(n *Node) {
 	g.WriteString("nil")
 }
 
-func (g *Generator) FieldNameNode(n *Node) {
-	panic("Implement me")
-}
-
-func (g *Generator) FieldValueNode(n *Node) {
-	panic("Implement me")
-}
-
-func (g *Generator) ElementNode(n *Node) {
-	panic("Implement me")
-}
-
-func (g *Generator) MapKeyNode(n *Node) {
-	panic("Implement me")
-}
-
-func (g *Generator) MapValueNode(n *Node) {
-	panic("Implement me")
-}
-
 func (g *Generator) StringNode(n *Node) {
 	g.WriteString(strconv.Quote(n.Value.String()))
 }
@@ -297,7 +267,7 @@ end:
 //goland:noinspection GoUnusedParameter
 func (g *Generator) assignOp(node *Node) (op string) {
 	switch node.parent.Type {
-	case FieldNameNode, ElementNode:
+	case FieldNode, ElementNode:
 		op = "="
 	default:
 		op = ":="
@@ -311,7 +281,7 @@ func (g *Generator) lhs(node *Node) (lhs string) {
 
 func (g *Generator) rhs(node *Node) (rhs string) {
 	// This works for node.Type == RefNode, node.NodeRef.Type==PointerNode,
-	// node.NodeRef.varname="varN", and node.parent.Type==FieldNameNode.
+	// node.NodeRef.varname="varN", and node.parent.Type==FieldNode.
 	// We'll need to handle others I am sure.
 	return "&" + g.nodeVarname(node)
 }
@@ -399,7 +369,7 @@ func (g *Generator) recordAssignment(n *Node) {
 	switch parent.Type {
 	case PointerNode:
 		g.recordAssignment(parent.parent)
-	case FieldNameNode, ElementNode:
+	case FieldNode, ElementNode:
 		g.Assignments = append(g.Assignments, &Assignment{
 			LHS: g.lhs(n),
 			Op:  g.assignOp(n),

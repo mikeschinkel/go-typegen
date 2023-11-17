@@ -299,7 +299,7 @@ func (cb *CodeBuilder) marshalStruct(rv refVal) (node *Node) {
 		name := rv.Type().Field(i).Name
 		child := NewNode(&NodeArgs{
 			Name:        name,
-			Type:        FieldNameNode,
+			Type:        FieldNode,
 			CodeBuilder: cb,
 			Value:       reflect.ValueOf(name),
 			Index:       i,
