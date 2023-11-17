@@ -6,10 +6,6 @@ import (
 	"sort"
 )
 
-type refVal = reflect.Value
-
-type PointerMap map[uintptr]*Node
-
 type CodeBuilder struct {
 	funcName string
 	value    reflect.Value
@@ -109,7 +105,7 @@ func (cb *CodeBuilder) Generate() string {
 		g.genMap[n.Index] = n
 
 	}
-	for _, a := range g.Assignments {
+	for _, a := range g.assignments {
 		g.writeAssignment(a)
 	}
 	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
@@ -117,7 +113,7 @@ func (cb *CodeBuilder) Generate() string {
 	return fmt.Sprintf("func %s() %s {\n%s", cb.funcName, returnType, g.String())
 }
 
-func (cb *CodeBuilder) marshalValue(rv refVal) (node *Node) {
+func (cb *CodeBuilder) marshalValue(rv reflect.Value) (node *Node) {
 	node = cb.marshalContainers(rv)
 	if node != nil {
 		goto end
@@ -131,7 +127,7 @@ end:
 	return node
 }
 
-func (cb *CodeBuilder) marshalContainers(rv refVal) (node *Node) {
+func (cb *CodeBuilder) marshalContainers(rv reflect.Value) (node *Node) {
 
 	switch rv.Kind() {
 	case reflect.Ptr:
@@ -154,22 +150,22 @@ end:
 }
 
 // marshalArray marshals an array value to create a Node
-func (cb *CodeBuilder) marshalArray(rv refVal) (node *Node) {
+func (cb *CodeBuilder) marshalArray(rv reflect.Value) (node *Node) {
 	return cb.marshalElements(rv, func() string {
 		return fmt.Sprintf("[%d]%s", rv.Len(), rv.Type().Elem())
 	})
 }
 
 // marshalSlice marshals a slice value to create a Node
-func (cb *CodeBuilder) marshalSlice(rv refVal) (node *Node) {
+func (cb *CodeBuilder) marshalSlice(rv reflect.Value) (node *Node) {
 	return cb.marshalElements(rv, func() string {
 		return fmt.Sprintf("[]%s", rv.Type().Elem())
 	})
 }
 
 // marshalElements marshals both array and slice values to create Nodes
-func (cb *CodeBuilder) marshalElements(rv refVal, nameFunc func() string) (node *Node) {
-	var ref refVal
+func (cb *CodeBuilder) marshalElements(rv reflect.Value, nameFunc func() string) (node *Node) {
+	var ref reflect.Value
 
 	node, found := cb.isRegistered(rv)
 	if found {
@@ -202,9 +198,9 @@ end:
 	return cb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalMap(rv refVal) (node *Node) {
+func (cb *CodeBuilder) marshalMap(rv reflect.Value) (node *Node) {
 	var name string
-	var ref refVal
+	var ref reflect.Value
 
 	var keys []reflect.Value
 
@@ -230,8 +226,8 @@ end:
 	return cb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalPtr(rv refVal) (node *Node) {
-	var ref refVal
+func (cb *CodeBuilder) marshalPtr(rv reflect.Value) (node *Node) {
+	var ref reflect.Value
 
 	node, found := cb.isRegistered(rv)
 	if found {
@@ -256,8 +252,8 @@ end:
 	return cb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalInterface(rv refVal) (node *Node) {
-	var ref refVal
+func (cb *CodeBuilder) marshalInterface(rv reflect.Value) (node *Node) {
+	var ref reflect.Value
 
 	node, found := cb.isRegistered(rv)
 	if found {
@@ -282,8 +278,8 @@ end:
 	return cb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalStruct(rv refVal) (node *Node) {
-	var ref refVal
+func (cb *CodeBuilder) marshalStruct(rv reflect.Value) (node *Node) {
+	var ref reflect.Value
 
 	node, found := cb.isRegistered(rv)
 	if found {
@@ -315,7 +311,7 @@ end:
 // Used by isRegistered() to determine if a node exists or needs to be added.
 // Called when marshalling collection types; array, slice, map, pointer,
 // interface, and struct.
-func (cb *CodeBuilder) register(rv refVal, n *Node) (ref reflect.Value) {
+func (cb *CodeBuilder) register(rv reflect.Value, n *Node) (ref reflect.Value) {
 	_, found := cb.isRegistered(rv)
 	if found {
 		ref = n.Ref
@@ -334,7 +330,7 @@ end:
 }
 
 // isRegistered returns a Node if found to be registered, and a bool true if found.
-func (cb *CodeBuilder) isRegistered(rv refVal) (node *Node, found bool) {
+func (cb *CodeBuilder) isRegistered(rv reflect.Value) (node *Node, found bool) {
 
 	if rv.Kind() != reflect.Pointer {
 		node, found = cb.findNodeMapKey(rv)
@@ -362,7 +358,7 @@ end:
 // findNodeMapKey loops through CodeBuilder.nodeMap[reflect.Value]*Node and to
 // find the value that matches. For pointer values it dereferences to do the
 // match.
-func (cb *CodeBuilder) findNodeMapKey(rv refVal) (node *Node, found bool) {
+func (cb *CodeBuilder) findNodeMapKey(rv reflect.Value) (node *Node, found bool) {
 	var n *Node
 	var k reflect.Value
 
@@ -403,7 +399,7 @@ end:
 	return node, found
 }
 
-func (cb *CodeBuilder) sortedKeys(rv refVal) (keys []reflect.Value) {
+func (cb *CodeBuilder) sortedKeys(rv reflect.Value) (keys []reflect.Value) {
 	keyValues := rv.MapKeys()
 	keys = make([]reflect.Value, len(keyValues))
 	for i, k := range keyValues {
