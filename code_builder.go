@@ -452,21 +452,3 @@ func (cb *CodeBuilder) maybeReuniteNodes() {
 		}
 	}
 }
-
-func isSame(v1, v2 reflect.Value) (same bool) {
-	if v1.Kind() == reflect.Pointer {
-		v1 = v1.Elem()
-	}
-	if v1.Kind() != v2.Kind() {
-		goto end
-	}
-	if v1.Comparable() && !v1.Equal(v2) {
-		goto end
-	}
-	if !reflect.DeepEqual(v1, v2) {
-		goto end
-	}
-	same = true
-end:
-	return same
-}
