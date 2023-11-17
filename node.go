@@ -7,20 +7,6 @@ import (
 
 type Nodes []*Node
 
-func (ns Nodes) Len() int {
-	return len(ns)
-}
-
-func (ns Nodes) WriteCode(g *Generator) {
-	n := 0
-	for _, node := range ns {
-		node.Index = n
-		node.resetDebugString()
-		g.WriteCode(node)
-		n++
-	}
-}
-
 type NodeArgs struct {
 	Name        string
 	NodeRef     *Node
