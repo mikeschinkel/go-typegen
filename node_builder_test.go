@@ -26,7 +26,7 @@ type iFaceStruct struct {
 	iFace2 any
 }
 
-func TestCodeBuilder_Marshal(t *testing.T) {
+func TestNodeBuilder_Marshal(t *testing.T) {
 	recur := recurStruct{name: "root", extra: "whatever"}
 	recur.recur = &recur
 
@@ -133,12 +133,9 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cb := typegen.NewCodeBuilder(tt.value, "getData", "typegen_test")
-			cb.Build()
-			got := cb.Generate()
-			//g := typegen.NewGenerator()
-			//g.WriteCode(cb.Nodes()[0])
-			//got := g.String()
+			nb := typegen.NewNodeBuilder(tt.value, "getData", "typegen_test")
+			nb.Build()
+			got := nb.Generate()
 			assert.Equal(t, tt.want, got)
 		})
 	}

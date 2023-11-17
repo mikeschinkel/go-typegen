@@ -31,9 +31,9 @@ type Generator struct {
 	genMap GenMap
 
 	// assignments is a slice of the assignments that need to be generated after for
-	// each node from `CodeBuilder.nodeMap` is generated that needs to be generated.
+	// each node from `NodeBuilder.nodeMap` is generated that needs to be generated.
 	// These are registered in `Generator.registerAssignment()` from within
-	// `Generator.RefNode()`, and then they are generated in `CodeBuilder.Generate()`
+	// `Generator.RefNode()`, and then they are generated in `NodeBuilder.Generate()`
 	// which calls `Generator.writeAssigment()`.
 	assignments Assignments
 
@@ -41,7 +41,7 @@ type Generator struct {
 	// `var3`, ... `varN``.  This is used in `Generator.nodeVarname()`
 	varnameCtr int
 
-	// prefixLen is set in `CodeBuilder.Generate()` to specify have make bytes it has
+	// prefixLen is set in `NodeBuilder.Generate()` to specify have make bytes it has
 	// written to the embedded `strings.Builder` of this `Generator` so that
 	// `Generator.RefNode()` can tell if the Generator has written any data or not.
 	// If it has not then it should call `Generator.WriteCode()` on the current node
@@ -473,7 +473,7 @@ end:
 }
 
 // writeAssignment will write an assigment previously registered by
-// `registerAssignment()`, which will be called in `CodeBuilder.Generate()` after
+// `registerAssignment()`, which will be called in `NodeBuilder.Generate()` after
 // the *Node in which it was register for is written.
 func (g *Generator) writeAssignment(a *Assignment) {
 	g.WriteString(fmt.Sprintf("%s%s %s %s\n",
@@ -486,7 +486,7 @@ func (g *Generator) writeAssignment(a *Assignment) {
 
 // registerAssignment will take a node and register an assigment line to be
 // generated after the current Node is being generated in
-// `CodeBuilder.Generate()`. Assignment lines take on the form of `<LHS> <Op>
+// `NodeBuilder.Generate()`. Assignment lines take on the form of `<LHS> <Op>
 // <RHS>` e.g. `var1.prop = 10` or `var2 := []string{}`
 func (g *Generator) registerAssignment(n *Node) {
 	var parent *Node

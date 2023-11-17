@@ -11,7 +11,7 @@ type NodeArgs struct {
 	Name        string
 	NodeRef     *Node
 	Type        NodeType
-	CodeBuilder *CodeBuilder
+	NodeBuilder *NodeBuilder
 	Value       reflect.Value
 	Index       int
 }
@@ -24,7 +24,7 @@ type Node struct {
 	Name        string
 	parent      *Node
 	nodes       Nodes
-	codeBuilder *CodeBuilder
+	nodeBuilder *NodeBuilder
 	Indent      string
 	Index       int
 	varname     string
@@ -40,7 +40,7 @@ func NewNode(args *NodeArgs) (n *Node) {
 		Type:        args.Type,
 		NodeRef:     args.NodeRef,
 		nodes:       make(Nodes, 0),
-		codeBuilder: args.CodeBuilder,
+		nodeBuilder: args.NodeBuilder,
 		Value:       args.Value,
 		Index:       args.Index,
 	}

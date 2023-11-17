@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-type CodeBuilder struct {
+type NodeBuilder struct {
 	funcName string
 	value    reflect.Value
 	original any
@@ -17,8 +17,8 @@ type CodeBuilder struct {
 	omitPkg  string
 }
 
-func NewCodeBuilder(value any, funcName string, omitPkg string) *CodeBuilder {
-	cb := &CodeBuilder{
+func NewNodeBuilder(value any, funcName string, omitPkg string) *NodeBuilder {
+	cb := &NodeBuilder{
 		original: value,
 		value:    reflect.ValueOf(value),
 		funcName: funcName,
@@ -29,66 +29,66 @@ func NewCodeBuilder(value any, funcName string, omitPkg string) *CodeBuilder {
 	}
 
 	if cb.value.Kind() == reflect.Struct {
-		panic("CodeBuilder currently does not support generating code for non-pointer structs (and probably never will.) Pass a pointer to the struct instead.")
+		panic("NodeBuilder currently does not support generating code for non-pointer structs (and probably never will.) Pass a pointer to the struct instead.")
 	}
 
 	return cb
 }
 
-func (cb *CodeBuilder) Nodes() Nodes {
-	return cb.nodes
+func (nb *NodeBuilder) Nodes() Nodes {
+	return nb.nodes
 }
 
-func (cb *CodeBuilder) Build() {
-	cb.root = cb.marshalValue(cb.value)
+func (nb *NodeBuilder) Build() {
+	nb.root = nb.marshalValue(nb.value)
 
-	if cb.NodeCount() == 0 {
+	if nb.NodeCount() == 0 {
 		// If the root value is not a container, and thus not yet registered, register
 		// the one value, so it can be converted in .String().
-		cb.register(cb.value, cb.root)
+		nb.register(nb.value, nb.root)
 	}
 
 	// Ensure the root node is not duplicated if referenced elsewhere by making sure
 	// all nodes are connected.
-	cb.maybeReuniteNodes()
+	nb.maybeReuniteNodes()
 }
 
-func (cb *CodeBuilder) NodeCount() int {
-	return len(cb.nodeMap)
+func (nb *NodeBuilder) NodeCount() int {
+	return len(nb.nodeMap)
 }
 
-func (cb *CodeBuilder) String() string {
-	return cb.Generate()
+func (nb *NodeBuilder) String() string {
+	return nb.Generate()
 }
 
 // selectNode selects a node for use in Generate(). If it is a pointer it
 // dereferences it by selecting the next node in the list of .nodes and
 // increments and returns the index. It also returns if it was a pointer
 // so that Generate() can generate a pointer return value, if so.
-func (cb *CodeBuilder) selectNode(index int) (n *Node, _ int, wasPtr bool) {
-	n = cb.nodes[index]
+func (nb *NodeBuilder) selectNode(index int) (n *Node, _ int, wasPtr bool) {
+	n = nb.nodes[index]
 	if n.Type != PointerNode {
 		goto end
 	}
 	wasPtr = true
-	if index >= cb.NodeCount() {
+	if index >= nb.NodeCount() {
 		goto end
 	}
 	index++
-	n = cb.nodes[index]
+	n = nb.nodes[index]
 end:
 	return n, index, wasPtr
 }
 
-func (cb *CodeBuilder) Generate() string {
+func (nb *NodeBuilder) Generate() string {
 	var returnVar, returnType string
 	var n *Node
 	var wasPtr bool
 
-	g := NewGenerator(cb.omitPkg)
-	nodeCnt := cb.NodeCount()
+	g := NewGenerator(nb.omitPkg)
+	nodeCnt := nb.NodeCount()
 	for i := 1; i <= nodeCnt; i++ {
-		n, i, wasPtr = cb.selectNode(i)
+		n, i, wasPtr = nb.selectNode(i)
 		if g.wasGenerated(n) {
 			// n is pointed at by prior, so we've already output it
 			continue
@@ -110,38 +110,38 @@ func (cb *CodeBuilder) Generate() string {
 	}
 	g.WriteString(fmt.Sprintf("%sreturn %s\n", g.Indent, returnVar))
 	g.WriteByte('}')
-	return fmt.Sprintf("func %s() %s {\n%s", cb.funcName, returnType, g.String())
+	return fmt.Sprintf("func %s() %s {\n%s", nb.funcName, returnType, g.String())
 }
 
-func (cb *CodeBuilder) marshalValue(rv reflect.Value) (node *Node) {
-	node = cb.marshalContainers(rv)
+func (nb *NodeBuilder) marshalValue(rv reflect.Value) (node *Node) {
+	node = nb.marshalContainers(rv)
 	if node != nil {
 		goto end
 	}
 	node = NewNode(&NodeArgs{
 		Name:        "scalar",
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       rv,
 	})
 end:
 	return node
 }
 
-func (cb *CodeBuilder) marshalContainers(rv reflect.Value) (node *Node) {
+func (nb *NodeBuilder) marshalContainers(rv reflect.Value) (node *Node) {
 
 	switch rv.Kind() {
 	case reflect.Ptr:
-		node = cb.marshalPtr(rv)
+		node = nb.marshalPtr(rv)
 	case reflect.Struct:
-		node = cb.marshalStruct(rv)
+		node = nb.marshalStruct(rv)
 	case reflect.Slice:
-		node = cb.marshalSlice(rv)
+		node = nb.marshalSlice(rv)
 	case reflect.Map:
-		node = cb.marshalMap(rv)
+		node = nb.marshalMap(rv)
 	case reflect.Interface:
-		node = cb.marshalInterface(rv)
+		node = nb.marshalInterface(rv)
 	case reflect.Array:
-		node = cb.marshalArray(rv)
+		node = nb.marshalArray(rv)
 	default:
 		goto end
 	}
@@ -150,194 +150,194 @@ end:
 }
 
 // marshalArray marshals an array value to create a Node
-func (cb *CodeBuilder) marshalArray(rv reflect.Value) (node *Node) {
-	return cb.marshalElements(rv, func() string {
+func (nb *NodeBuilder) marshalArray(rv reflect.Value) (node *Node) {
+	return nb.marshalElements(rv, func() string {
 		return fmt.Sprintf("[%d]%s", rv.Len(), rv.Type().Elem())
 	})
 }
 
 // marshalSlice marshals a slice value to create a Node
-func (cb *CodeBuilder) marshalSlice(rv reflect.Value) (node *Node) {
-	return cb.marshalElements(rv, func() string {
+func (nb *NodeBuilder) marshalSlice(rv reflect.Value) (node *Node) {
+	return nb.marshalElements(rv, func() string {
 		return fmt.Sprintf("[]%s", rv.Type().Elem())
 	})
 }
 
 // marshalElements marshals both array and slice values to create Nodes
-func (cb *CodeBuilder) marshalElements(rv reflect.Value, nameFunc func() string) (node *Node) {
+func (nb *NodeBuilder) marshalElements(rv reflect.Value, nameFunc func() string) (node *Node) {
 	var ref reflect.Value
 
-	node, found := cb.isRegistered(rv)
+	node, found := nb.isRegistered(rv)
 	if found {
 		goto end
 	}
 	node = NewNode(&NodeArgs{
 		Name:        nameFunc(),
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       rv,
 	})
-	ref = cb.register(rv, node)
+	ref = nb.register(rv, node)
 
 	node.SetNodeCount(rv.Len())
 	for i := 0; i < rv.Len(); i++ {
 		child := NewNode(&NodeArgs{
 			Name:        fmt.Sprintf("Index %d", i),
 			Type:        ElementNode,
-			CodeBuilder: cb,
+			NodeBuilder: nb,
 			Value:       reflect.ValueOf(i),
 			Index:       i,
 		})
 		node.AddNode(child)
-		childValue := cb.marshalValue(rv.Index(i))
+		childValue := nb.marshalValue(rv.Index(i))
 		childValue.Index = i
 		childValue.Name = fmt.Sprintf("Value %d", i)
 		childValue.resetDebugString()
 		child.AddNode(childValue)
 	}
 end:
-	return cb.newRefNode(node, ref)
+	return nb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalMap(rv reflect.Value) (node *Node) {
+func (nb *NodeBuilder) marshalMap(rv reflect.Value) (node *Node) {
 	var name string
 	var ref reflect.Value
 
 	var keys []reflect.Value
 
-	node, found := cb.isRegistered(rv)
+	node, found := nb.isRegistered(rv)
 	if found {
 		goto end
 	}
 	name = fmt.Sprintf("map[%s]%s", rv.Type().Key(), rv.Type().Elem())
 	node = NewNode(&NodeArgs{
 		Name:        name,
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       rv,
 	})
-	ref = cb.register(rv, node)
-	keys = cb.sortedKeys(rv)
+	ref = nb.register(rv, node)
+	keys = nb.sortedKeys(rv)
 	node.SetNodeCount(len(keys))
 	for _, key := range keys {
-		child := cb.marshalValue(key)
+		child := nb.marshalValue(key)
 		node.AddNode(child)
-		child.AddNode(cb.marshalValue(rv.MapIndex(key)))
+		child.AddNode(nb.marshalValue(rv.MapIndex(key)))
 	}
 end:
-	return cb.newRefNode(node, ref)
+	return nb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalPtr(rv reflect.Value) (node *Node) {
+func (nb *NodeBuilder) marshalPtr(rv reflect.Value) (node *Node) {
 	var ref reflect.Value
 
-	node, found := cb.isRegistered(rv)
+	node, found := nb.isRegistered(rv)
 	if found {
 		goto end
 	}
 	if rv.IsNil() {
 		node = NewNode(&NodeArgs{
 			Name:        "nil",
-			CodeBuilder: cb,
+			NodeBuilder: nb,
 			Value:       rv,
 		})
 		goto end
 	}
 	node = NewNode(&NodeArgs{
 		Name:        "&",
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       rv,
 	})
-	ref = cb.register(rv, node)
-	node.AddNode(cb.marshalValue(rv.Elem()))
+	ref = nb.register(rv, node)
+	node.AddNode(nb.marshalValue(rv.Elem()))
 end:
-	return cb.newRefNode(node, ref)
+	return nb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalInterface(rv reflect.Value) (node *Node) {
+func (nb *NodeBuilder) marshalInterface(rv reflect.Value) (node *Node) {
 	var ref reflect.Value
 
-	node, found := cb.isRegistered(rv)
+	node, found := nb.isRegistered(rv)
 	if found {
 		goto end
 	}
 	if rv.IsNil() {
 		node = NewNode(&NodeArgs{
 			Name:        "nil",
-			CodeBuilder: cb,
+			NodeBuilder: nb,
 			Value:       rv,
 		})
 		goto end
 	}
 	node = NewNode(&NodeArgs{
 		Name:        rv.Type().String(),
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       rv,
 	})
-	ref = cb.register(rv, node)
-	node.AddNode(cb.marshalValue(rv.Elem()))
+	ref = nb.register(rv, node)
+	node.AddNode(nb.marshalValue(rv.Elem()))
 end:
-	return cb.newRefNode(node, ref)
+	return nb.newRefNode(node, ref)
 }
 
-func (cb *CodeBuilder) marshalStruct(rv reflect.Value) (node *Node) {
+func (nb *NodeBuilder) marshalStruct(rv reflect.Value) (node *Node) {
 	var ref reflect.Value
 
-	node, found := cb.isRegistered(rv)
+	node, found := nb.isRegistered(rv)
 	if found {
 		goto end
 	}
 	node = NewNode(&NodeArgs{
 		Name:        rv.Type().String(),
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       rv,
 	})
-	ref = cb.register(rv, node)
+	ref = nb.register(rv, node)
 	for i := 0; i < rv.NumField(); i++ {
 		name := rv.Type().Field(i).Name
 		child := NewNode(&NodeArgs{
 			Name:        name,
 			Type:        FieldNode,
-			CodeBuilder: cb,
+			NodeBuilder: nb,
 			Value:       reflect.ValueOf(name),
 			Index:       i,
 		})
 		node.AddNode(child)
-		child.AddNode(cb.marshalValue(rv.Field(i)))
+		child.AddNode(nb.marshalValue(rv.Field(i)))
 	}
 end:
-	return cb.newRefNode(node, ref)
+	return nb.newRefNode(node, ref)
 }
 
 // register adds a Node to both .nodeMap and .nodes, and for pointers to .ptrMap.
 // Used by isRegistered() to determine if a node exists or needs to be added.
 // Called when marshalling collection types; array, slice, map, pointer,
 // interface, and struct.
-func (cb *CodeBuilder) register(rv reflect.Value, n *Node) (ref reflect.Value) {
-	_, found := cb.isRegistered(rv)
+func (nb *NodeBuilder) register(rv reflect.Value, n *Node) (ref reflect.Value) {
+	_, found := nb.isRegistered(rv)
 	if found {
 		ref = n.Ref
 		goto end
 	}
-	cb.nodeMap[rv] = n
-	n.Index = len(cb.nodeMap)
+	nb.nodeMap[rv] = n
+	n.Index = len(nb.nodeMap)
 	ref = reflect.ValueOf(n.Index)
 	if rv.Kind() == reflect.Pointer {
-		cb.ptrMap[rv.Pointer()] = n
+		nb.ptrMap[rv.Pointer()] = n
 	}
-	cb.nodes = append(cb.nodes, n)
+	nb.nodes = append(nb.nodes, n)
 	n.Ref = ref
 end:
 	return ref
 }
 
 // isRegistered returns a Node if found to be registered, and a bool true if found.
-func (cb *CodeBuilder) isRegistered(rv reflect.Value) (node *Node, found bool) {
+func (nb *NodeBuilder) isRegistered(rv reflect.Value) (node *Node, found bool) {
 
 	if rv.Kind() != reflect.Pointer {
-		node, found = cb.findNodeMapKey(rv)
+		node, found = nb.findNodeMapKey(rv)
 		goto end
 	}
 
-	node, found = cb.ptrMap[rv.Pointer()]
+	node, found = nb.ptrMap[rv.Pointer()]
 	if found {
 		// If the value of `rv` is a pointer, and we previously recorded it, then skip
 		// registration.
@@ -345,25 +345,25 @@ func (cb *CodeBuilder) isRegistered(rv reflect.Value) (node *Node, found bool) {
 	}
 
 	// Look for the value pointed to having already been registered
-	node, found = cb.findNodeMapKey(rv)
+	node, found = nb.findNodeMapKey(rv)
 	if found {
 		// If yes, create a RefNode for it
-		node = cb.newRefNode(node, rv)
+		node = nb.newRefNode(node, rv)
 	}
 
 end:
 	return node, found
 }
 
-// findNodeMapKey loops through CodeBuilder.nodeMap[reflect.Value]*Node and to
+// findNodeMapKey loops through NodeBuilder.nodeMap[reflect.Value]*Node and to
 // find the value that matches. For pointer values it dereferences to do the
 // match.
-func (cb *CodeBuilder) findNodeMapKey(rv reflect.Value) (node *Node, found bool) {
+func (nb *NodeBuilder) findNodeMapKey(rv reflect.Value) (node *Node, found bool) {
 	var n *Node
 	var k reflect.Value
 
 	// First look for direct reflect.Value matches
-	for k, n = range cb.nodeMap {
+	for k, n = range nb.nodeMap {
 		if rv.Kind() == reflect.Pointer {
 			continue
 		}
@@ -378,7 +378,7 @@ func (cb *CodeBuilder) findNodeMapKey(rv reflect.Value) (node *Node, found bool)
 	}
 
 	// Next look for ptr>reflect.value matching reflect.value
-	for k, n = range cb.nodeMap {
+	for k, n = range nb.nodeMap {
 		if rv.Kind() != reflect.Pointer {
 			continue
 		}
@@ -399,7 +399,7 @@ end:
 	return node, found
 }
 
-func (cb *CodeBuilder) sortedKeys(rv reflect.Value) (keys []reflect.Value) {
+func (nb *NodeBuilder) sortedKeys(rv reflect.Value) (keys []reflect.Value) {
 	keyValues := rv.MapKeys()
 	keys = make([]reflect.Value, len(keyValues))
 	for i, k := range keyValues {
@@ -411,12 +411,12 @@ func (cb *CodeBuilder) sortedKeys(rv reflect.Value) (keys []reflect.Value) {
 	return keys
 }
 
-func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
+func (nb *NodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 	return NewNode(&NodeArgs{
 		Name:        fmt.Sprintf("ref%d", node.Index),
 		NodeRef:     node,
 		Type:        RefNode,
-		CodeBuilder: cb,
+		NodeBuilder: nb,
 		Value:       ref,
 		Index:       node.Index,
 	})
@@ -424,12 +424,12 @@ func (cb *CodeBuilder) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 
 // maybeReuniteNodes looks for any pointer parents with children, and/or children with
 // no parents that match and connect them.
-func (cb *CodeBuilder) maybeReuniteNodes() {
+func (nb *NodeBuilder) maybeReuniteNodes() {
 
-	pointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, _ *Node) bool {
+	pointers := filterMapFunc(nb.nodeMap, func(value reflect.Value, _ *Node) bool {
 		return value.Kind() == reflect.Pointer
 	})
-	nonPointers := filterMapFunc(cb.nodeMap, func(value reflect.Value, _ *Node) bool {
+	nonPointers := filterMapFunc(nb.nodeMap, func(value reflect.Value, _ *Node) bool {
 		return value.Kind() != reflect.Pointer
 	})
 
