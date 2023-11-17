@@ -138,7 +138,8 @@ func (b *CodeBuilder) Build() string {
 // generated separately. This function will add an `*Assignment` for each of
 // those properties.
 func (b *CodeBuilder) WriteCode(n *Node) {
-	n.Name = b.maybeStripPackage(n.Name)
+	n.Name = maybeStripPackage(n.Name, b.omitPkg)
+	n.Name = replaceInterfaceWithAny(n.Name)
 	n.resetDebugString()
 	switch n.Type {
 	case RefNode:
@@ -527,14 +528,15 @@ end:
 func (b *CodeBuilder) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
 	if isPtr {
 		rv += "&" + b.nodeVarname(n)
-		rt = "*" + b.maybeStripPackage(n.Value.Type().String())
+		rt = "*" + maybeStripPackage(n.Value.Type().String(), b.omitPkg)
 		goto end
 	}
 	rv = b.nodeVarname(n)
 	rt = "error" // error is a built-in type that can can be nil.
 	if n.Value.IsValid() {
 		// Get the return type, and with `.omitPkg` package stripped, if applicable
-		rt = b.maybeStripPackage(n.Value.Type().String())
+		rt = maybeStripPackage(n.Value.Type().String(), b.omitPkg)
+		rt = replaceInterfaceWithAny(rt)
 	}
 end:
 	return rv, rt
@@ -579,26 +581,4 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
 	}
 end:
-}
-
-// pkgStripRE is a regular expression used by CodeBuilder.maybeStripPackage()
-var pkgStripRE *regexp.Regexp
-
-// maybeStripPackage will remove `foo.` from `foo.Bar`, *foo.Bar`, []foo.Bar` and so on.
-func (b *CodeBuilder) maybeStripPackage(name string) string {
-	if name == "&" {
-		goto end
-	}
-	if len(name) == 0 {
-		goto end
-	}
-	if !strings.Contains(name, ".") {
-		goto end
-	}
-	if pkgStripRE == nil {
-		pkgStripRE = regexp.MustCompile(fmt.Sprintf(`^(\W*)%s\.`, b.omitPkg))
-	}
-	name = pkgStripRE.ReplaceAllString(name, "$1")
-end:
-	return name
 }

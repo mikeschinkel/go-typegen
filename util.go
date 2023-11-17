@@ -3,6 +3,8 @@ package typegen
 import (
 	"fmt"
 	"reflect"
+	"regexp"
+	"strings"
 )
 
 func panicf(msg string, args ...any) {
@@ -36,4 +38,29 @@ func isSame(v1, v2 reflect.Value) (same bool) {
 	same = true
 end:
 	return same
+}
+
+var iFaceRE = regexp.MustCompile(`^(\W*)interface \{\}`)
+
+func replaceInterfaceWithAny(name string) string {
+	return iFaceRE.ReplaceAllString(name, "${1}any")
+}
+
+// maybeStripPackage will remove `foo.` from `foo.Bar`, *foo.Bar`, []foo.Bar` and so on.
+func maybeStripPackage(name, omitPkg string) string {
+	var pkgStripRE *regexp.Regexp
+
+	if name == "&" {
+		goto end
+	}
+	if len(name) == 0 {
+		goto end
+	}
+	if !strings.Contains(name, ".") {
+		goto end
+	}
+	pkgStripRE = regexp.MustCompile(fmt.Sprintf(`^(\W*)%s\.`, omitPkg))
+	name = pkgStripRE.ReplaceAllString(name, "$1")
+end:
+	return name
 }
