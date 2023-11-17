@@ -166,6 +166,7 @@ func (g *Generator) IntNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%d", n.Value.Int()))
 }
 func (g *Generator) UintNode(n *Node) {
+	g.WriteString(fmt.Sprintf("%d", n.Value.Uint()))
 }
 func (g *Generator) BoolNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
