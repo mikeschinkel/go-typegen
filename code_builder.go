@@ -311,6 +311,57 @@ end:
 	return cb.newRefNode(node, ref)
 }
 
+// register adds a Node to both .nodeMap and .nodes, and for pointers to .ptrMap.
+// Used by isRegistered() to determine if a node exists or needs to be added.
+// Called when marshalling collection types; array, slice, map, pointer,
+// interface, and struct.
+func (cb *CodeBuilder) register(rv refVal, n *Node) (ref reflect.Value) {
+	_, found := cb.isRegistered(rv)
+	if found {
+		ref = n.Ref
+		goto end
+	}
+	cb.nodeMap[rv] = n
+	n.Index = len(cb.nodeMap)
+	ref = reflect.ValueOf(n.Index)
+	if rv.Kind() == reflect.Pointer {
+		cb.ptrMap[rv.Pointer()] = n
+	}
+	cb.nodes = append(cb.nodes, n)
+	n.Ref = ref
+end:
+	return ref
+}
+
+// isRegistered returns a Node if found to be registered, and a bool true if found.
+func (cb *CodeBuilder) isRegistered(rv refVal) (node *Node, found bool) {
+
+	if rv.Kind() != reflect.Pointer {
+		node, found = cb.findNodeMapKey(rv)
+		goto end
+	}
+
+	node, found = cb.ptrMap[rv.Pointer()]
+	if found {
+		// If the value of `rv` is a pointer, and we previously recorded it, then skip
+		// registration.
+		goto end
+	}
+
+	// Look for the value pointed to having already been registered
+	node, found = cb.findNodeMapKey(rv)
+	if found {
+		// If yes, create a RefNode for it
+		node = cb.newRefNode(node, rv)
+	}
+
+end:
+	return node, found
+}
+
+// findNodeMapKey loops through CodeBuilder.nodeMap[reflect.Value]*Node and to
+// find the value that matches. For pointer values it dereferences to do the
+// match.
 func (cb *CodeBuilder) findNodeMapKey(rv refVal) (node *Node, found bool) {
 	var n *Node
 	var k reflect.Value
@@ -350,49 +401,6 @@ end:
 		node = n
 	}
 	return node, found
-}
-
-func (cb *CodeBuilder) isRegistered(rv refVal) (node *Node, found bool) {
-
-	if rv.Kind() != reflect.Pointer {
-		node, found = cb.findNodeMapKey(rv)
-		goto end
-	}
-
-	node, found = cb.ptrMap[rv.Pointer()]
-	if found {
-		// If the value of `rv` is a pointer, and we previously recorded it, then skip
-		// registration.
-		goto end
-	}
-
-	// Look for the value pointed to having already been registered
-	node, found = cb.findNodeMapKey(rv)
-	if found {
-		// If yes, create a RefNode for it
-		node = cb.newRefNode(node, rv)
-	}
-
-end:
-	return node, found
-}
-
-func (cb *CodeBuilder) register(rv refVal, n *Node) (ref reflect.Value) {
-	_, found := cb.isRegistered(rv)
-	if found {
-		ref = n.Ref
-		goto end
-	}
-	cb.nodeMap[rv] = n
-	n.Index = len(cb.nodeMap)
-	ref = reflect.ValueOf(n.Index)
-	if rv.Kind() == reflect.Pointer {
-		cb.ptrMap[rv.Pointer()] = n
-	}
-	cb.nodes = append(cb.nodes, n)
-	n.Ref = ref
-end:
-	return ref
 }
 
 func (cb *CodeBuilder) sortedKeys(rv refVal) (keys []reflect.Value) {
