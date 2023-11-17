@@ -39,7 +39,7 @@ func (m *NodeMarshaler) Nodes() Nodes {
 	return m.nodes
 }
 
-func (m *NodeMarshaler) Build() {
+func (m *NodeMarshaler) Build() Nodes {
 	m.root = m.marshalValue(m.value)
 
 	if m.NodeCount() == 0 {
@@ -51,6 +51,8 @@ func (m *NodeMarshaler) Build() {
 	// Ensure the root node is not duplicated if referenced elsewhere by making sure
 	// all nodes are connected.
 	m.maybeReuniteNodes()
+
+	return m.nodes
 }
 
 func (m *NodeMarshaler) NodeCount() int {
