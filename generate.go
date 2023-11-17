@@ -174,13 +174,14 @@ func (g *Generator) BoolNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
 }
 func (g *Generator) PointerNode(n *Node) {
-	if g.VarGenerated(n.nodes[0]) {
-		// If var is already generated then g.RefNode() will output a variable name which
-		// we'll need to get the address of with `&. But if not, it will output a `nil`
-		// which we can't use `&` in front of.
-		g.WriteByte('&')
-	}
-	g.WriteCode(n.nodes[0])
+	//if g.VarGenerated(n.nodes[0]) {
+	//	// If var is already generated then g.RefNode() will output a variable name which
+	//	// we'll need to get the address of with `&. But if not, it will output a `nil`
+	//	// which we can't use `&` in front of.
+	//	g.WriteByte('&')
+	//}
+	//g.WriteCode(n.nodes[0])
+	panic("Verify this gets called")
 }
 
 func (g *Generator) MapNode(n *Node) {
