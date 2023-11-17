@@ -15,14 +15,14 @@ package main
 import "github.com/mikeschinkel/go-typegen"
 
 func main() {
-	value := []int{1, 2, 3}
-	funcName := "getData"
-	// Replace w/package name where you will use getdata() func.
-	omitPkg := "typegen_test"
-	cb := typegen.NewCodeBuilder(value, funcName, omitPkg)
-	cb.Build()
-	code := cb.Generate()
-	println(code)
+  value := []int{1, 2, 3}
+  funcName := "getData"
+  // Replace w/package name where you will use getdata() func.
+  omitPkg := "typegen_test"
+  cb := typegen.NewCodeBuilder(value, funcName, omitPkg)
+  cb.Build()
+  code := cb.Generate()
+  println(code)
 }
 ```
 The above code will print the following:
