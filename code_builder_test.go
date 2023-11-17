@@ -111,12 +111,17 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 			value: [3]int{1, 2, 3},
 			want:  wantValue(`[3]int`, `[3]int{1,2,3,}`),
 		},
+		{
+			name:  "Simple interface containing int",
+			value: interface{}(10),
+			want:  wantValue(`int`, `10`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := typegen.NewCodeBuilder(tt.value, "getData", "typegen_test")
 			cb.Build()
-			got := cb.String()
+			got := cb.Generate()
 			//g := typegen.NewGenerator()
 			//g.WriteCode(cb.Nodes()[0])
 			//got := g.String()
