@@ -43,9 +43,9 @@ func (m *NodeMarshaler) Build() Nodes {
 	m.root = m.marshalValue(m.value)
 
 	if m.NodeCount() == 0 {
-		// If the root value is not a container, and thus not yet registered, register
+		// If the root value is not a container, and thus not yet registered, registerNode
 		// the one value, so it can be converted in .String().
-		m.register(m.value, m.root)
+		m.registerNode(m.value, m.root)
 	}
 
 	// Ensure the root node is not duplicated if referenced elsewhere by making sure
@@ -178,7 +178,7 @@ func (m *NodeMarshaler) marshalElements(rv reflect.Value, nameFunc func() string
 		marshaler: m,
 		Value:     rv,
 	})
-	ref = m.register(rv, node)
+	ref = m.registerNode(rv, node)
 
 	node.SetNodeCount(rv.Len())
 	for i := 0; i < rv.Len(); i++ {
@@ -216,7 +216,7 @@ func (m *NodeMarshaler) marshalMap(rv reflect.Value) (node *Node) {
 		marshaler: m,
 		Value:     rv,
 	})
-	ref = m.register(rv, node)
+	ref = m.registerNode(rv, node)
 	keys = m.sortedKeys(rv)
 	node.SetNodeCount(len(keys))
 	for _, key := range keys {
@@ -248,7 +248,7 @@ func (m *NodeMarshaler) marshalPtr(rv reflect.Value) (node *Node) {
 		marshaler: m,
 		Value:     rv,
 	})
-	ref = m.register(rv, node)
+	ref = m.registerNode(rv, node)
 	node.AddNode(m.marshalValue(rv.Elem()))
 end:
 	return m.newRefNode(node, ref)
@@ -274,7 +274,7 @@ func (m *NodeMarshaler) marshalInterface(rv reflect.Value) (node *Node) {
 		marshaler: m,
 		Value:     rv,
 	})
-	ref = m.register(rv, node)
+	ref = m.registerNode(rv, node)
 	node.AddNode(m.marshalValue(rv.Elem()))
 end:
 	return m.newRefNode(node, ref)
@@ -292,7 +292,7 @@ func (m *NodeMarshaler) marshalStruct(rv reflect.Value) (node *Node) {
 		marshaler: m,
 		Value:     rv,
 	})
-	ref = m.register(rv, node)
+	ref = m.registerNode(rv, node)
 	for i := 0; i < rv.NumField(); i++ {
 		name := rv.Type().Field(i).Name
 		child := NewNode(&NodeArgs{
@@ -313,7 +313,7 @@ end:
 // Used by isRegistered() to determine if a node exists or needs to be added.
 // Called when marshalling collection types; array, slice, map, pointer,
 // interface, and struct.
-func (m *NodeMarshaler) register(rv reflect.Value, n *Node) (ref reflect.Value) {
+func (m *NodeMarshaler) registerNode(rv reflect.Value, n *Node) (ref reflect.Value) {
 	_, found := m.isRegistered(rv)
 	if found {
 		ref = n.Ref
