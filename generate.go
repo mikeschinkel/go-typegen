@@ -156,7 +156,7 @@ func (g *Generator) InterfaceNode(n *Node) {
 	g.WriteByte('}')
 }
 
-func (g *Generator) InvalidNode(n *Node) {
+func (g *Generator) InvalidNode(*Node) {
 	// TODO: Confirm this works in all cases.
 	g.WriteString("nil")
 }
@@ -173,7 +173,7 @@ func (g *Generator) UintNode(n *Node) {
 func (g *Generator) BoolNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
 }
-func (g *Generator) PointerNode(n *Node) {
+func (g *Generator) PointerNode(*Node) {
 	//if g.VarGenerated(n.nodes[0]) {
 	//	// If var is already generated then g.RefNode() will output a variable name which
 	//	// we'll need to get the address of with `&. But if not, it will output a `nil`
