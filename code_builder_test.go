@@ -21,6 +21,10 @@ type recurStruct struct {
 type recur2Struct struct {
 	recur []*recur2Struct
 }
+type iFaceStruct struct {
+	iFace1 interface{}
+	iFace2 any
+}
 
 func TestCodeBuilder_Marshal(t *testing.T) {
 	recur := recurStruct{name: "root", extra: "whatever"}
@@ -30,11 +34,21 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 	recur2.recur = make([]*recur2Struct, 1)
 	recur2.recur[0] = &recur2
 
+	iFace := iFaceStruct{
+		iFace1: interface{}("Hello"),
+		iFace2: any(10),
+	}
+
 	tests := []struct {
 		name  string
 		value any
 		want  string
 	}{
+		{
+			name:  "Pointer to interface struct containing interface{}(string) and any(int)",
+			value: &iFace,
+			want:  wantPtrValue(`*iFaceStruct`, `iFaceStruct{iFace1:nil,iFace2:nil,}%s  var2 := any("Hello"}%s  var3 := any(10}%s  var1.iFace1 = &var2%s  var1.iFace2 = &var3`, "\n", "\n", "\n", "\n"),
+		},
 		{
 			name:  "nil",
 			value: nil,

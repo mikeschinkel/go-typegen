@@ -151,7 +151,9 @@ func (g *Generator) Float64Node(n *Node) {
 }
 
 func (g *Generator) InterfaceNode(n *Node) {
-	panic("Implement me")
+	g.WriteString("any(")
+	g.WriteCode(n.nodes[0])
+	g.WriteByte('}')
 }
 
 func (g *Generator) InvalidNode(n *Node) {
