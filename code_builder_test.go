@@ -47,7 +47,7 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		{
 			name:  "Pointer to interface struct containing interface{}(string) and any(int)",
 			value: &iFace,
-			want:  wantPtrValue(`*iFaceStruct`, `iFaceStruct{iFace1:nil,iFace2:nil,}%s  var2 := any("Hello"}%s  var3 := any(10}%s  var1.iFace1 = &var2%s  var1.iFace2 = &var3`, "\n", "\n", "\n", "\n"),
+			want:  wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:nil,iFace2:nil,}%s  var2 := any("Hello"}%s  var3 := any(10}%s  var1.iFace1 = &var2%s  var1.iFace2 = &var3`, "\n", "\n", "\n", "\n"),
 		},
 		{
 			name:  "nil",
@@ -103,17 +103,17 @@ func TestCodeBuilder_Marshal(t *testing.T) {
 		{
 			name:  "Pointer to simple struct",
 			value: &testStruct{},
-			want:  wantPtrValue(`*testStruct`, `testStruct{Int:0,String:"",}`),
+			want:  wantPtrValue(`testStruct`, `testStruct{Int:0,String:"",}`),
 		},
 		{
 			name:  "Pointer to struct with indirect property pointing to itself",
 			value: &recur2,
-			want:  wantPtrValue(`*recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{&var1,}%s  var1.recur = &var2`, "\n", "\n"),
+			want:  wantPtrValue(`recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{&var1,}%s  var1.recur = &var2`, "\n", "\n"),
 		},
 		{
 			name:  "Pointer to struct with property pointing to itself",
 			value: &recur,
-			want:  wantPtrValue("*recurStruct", `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
+			want:  wantPtrValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
 		},
 		{
 			name:  "Empty array",
@@ -148,6 +148,9 @@ func wantValue(typ, want string, args ...any) string {
 	return wantValueWithReturn(typ, want, "var1", args...)
 }
 func wantPtrValue(typ, want string, args ...any) string {
+	if typ[0] != '*' {
+		typ = "*" + typ
+	}
 	return wantValueWithReturn(typ, want, "&var1", args...)
 }
 
