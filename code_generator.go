@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-type Generator struct {
+type CodeGenerator struct {
 
-	// Builder caches the output during generation, and is embedded so Generator
+	// Builder caches the output during generation, and is embedded so CodeGenerator
 	// objects can call its methods directly.
 	strings.Builder
 
@@ -32,31 +32,31 @@ type Generator struct {
 
 	// assignments is a slice of the assignments that need to be generated after for
 	// each node from `NodeMarshaler.nodeMap` is generated that needs to be generated.
-	// These are registered in `Generator.registerAssignment()` from within
-	// `Generator.RefNode()`, and then they are generated in `NodeMarshaler.Generate()`
-	// which calls `Generator.writeAssigment()`.
+	// These are registered in `CodeGenerator.registerAssignment()` from within
+	// `CodeGenerator.RefNode()`, and then they are generated in `NodeMarshaler.Generate()`
+	// which calls `CodeGenerator.writeAssigment()`.
 	assignments Assignments
 
 	// varnameCtr keeps track of the next variable name suffix, e.g. `var`, `var2`,
-	// `var3`, ... `varN``.  This is used in `Generator.nodeVarname()`
+	// `var3`, ... `varN``.  This is used in `CodeGenerator.nodeVarname()`
 	varnameCtr int
 
 	// prefixLen is set in `NodeMarshaler.Generate()` to specify have make bytes it has
-	// written to the embedded `strings.Builder` of this `Generator` so that
-	// `Generator.RefNode()` can tell if the Generator has written any data or not.
-	// If it has not then it should call `Generator.WriteCode()` on the current node
+	// written to the embedded `strings.Builder` of this `CodeGenerator` so that
+	// `CodeGenerator.RefNode()` can tell if the CodeGenerator has written any data or not.
+	// If it has not then it should call `CodeGenerator.WriteCode()` on the current node
 	// since it will be the first node, otherwise it would output `nil` for use in a
 	// container property, are as a variable to be references if the code was already
 	// generated.
 	prefixLen int
 }
 
-// NewGenerator instantiates a new *Generator object with one param; the package
+// NewCodeGenerator instantiates a new *CodeGenerator object with one param; the package
 // name to omit from code generation which should be the package the code will be
 // used within, e.g. "typegen_test" if the output is to be used for tests for the
 // `typegen` package.
-func NewGenerator(omitPkg string) *Generator {
-	return &Generator{
+func NewCodeGenerator(omitPkg string) *CodeGenerator {
+	return &CodeGenerator{
 		Indent:      "  ",
 		omitPkg:     omitPkg,
 		genMap:      make(GenMap),
@@ -69,7 +69,7 @@ func NewGenerator(omitPkg string) *Generator {
 // properties that are containers — array, slice, struct, ptr, map, etc. — to be
 // generated separately. This function will add an `*Assignment` for each of
 // those properties.
-func (g *Generator) WriteCode(n *Node) {
+func (g *CodeGenerator) WriteCode(n *Node) {
 	n.Name = g.maybeStripPackage(n.Name)
 	n.resetDebugString()
 	switch n.Type {
@@ -129,7 +129,7 @@ func (g *Generator) WriteCode(n *Node) {
 // address of operator. RefNodes were designed to allow complex object graphs to
 // be generated one container at a time by replacing expression code with a `nil`
 // and then delegating the expression to a later variable assignment.
-func (g *Generator) RefNode(n *Node) {
+func (g *CodeGenerator) RefNode(n *Node) {
 	switch {
 	case g.Builder.Len() == g.prefixLen:
 		// Output has not been generated for any node so this is the first node and the
@@ -161,85 +161,85 @@ end:
 
 // Int8Node generates the int8 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Int8Node(n *Node) {
+func (g *CodeGenerator) Int8Node(n *Node) {
 	g.WriteString(fmt.Sprintf("int8(%d)", n.Value.Int()))
 }
 
 // Int16Node generates the int16 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Int16Node(n *Node) {
+func (g *CodeGenerator) Int16Node(n *Node) {
 	g.WriteString(fmt.Sprintf("int16(%d)", n.Value.Int()))
 }
 
 // Int32Node generates the int32 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Int32Node(n *Node) {
+func (g *CodeGenerator) Int32Node(n *Node) {
 	g.WriteString(fmt.Sprintf("int32(%d)", n.Value.Int()))
 }
 
 // Int64Node generates the int64 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Int64Node(n *Node) {
+func (g *CodeGenerator) Int64Node(n *Node) {
 	g.WriteString(fmt.Sprintf("int64(%d)", n.Value.Int()))
 }
 
 // Uint8Node generates the uint8 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Uint8Node(n *Node) {
+func (g *CodeGenerator) Uint8Node(n *Node) {
 	g.WriteString(fmt.Sprintf("Uint8(%d)", n.Value.Uint()))
 }
 
 // Uint16Node generates the uint16 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Uint16Node(n *Node) {
+func (g *CodeGenerator) Uint16Node(n *Node) {
 	g.WriteString(fmt.Sprintf("Uint16(%d)", n.Value.Uint()))
 }
 
 // Uint32Node generates the uint32 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Uint32Node(n *Node) {
+func (g *CodeGenerator) Uint32Node(n *Node) {
 	g.WriteString(fmt.Sprintf("Uint32(%d)", n.Value.Uint()))
 }
 
 // Uint64Node generates the uint64 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Uint64Node(n *Node) {
+func (g *CodeGenerator) Uint64Node(n *Node) {
 	g.WriteString(fmt.Sprintf("Uint64(%d)", n.Value.Uint()))
 }
 
 // Float32Node generates the float32 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Float32Node(n *Node) {
+func (g *CodeGenerator) Float32Node(n *Node) {
 	g.WriteString(fmt.Sprintf("float32(%f)", n.Value.Float()))
 }
 
 // Float64Node generates the float64 code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) Float64Node(n *Node) {
+func (g *CodeGenerator) Float64Node(n *Node) {
 	g.WriteString(fmt.Sprintf("float64(%f)", n.Value.Float()))
 }
 
 // StringNode generates the string code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) StringNode(n *Node) {
+func (g *CodeGenerator) StringNode(n *Node) {
 	g.WriteString(strconv.Quote(n.Value.String()))
 }
 
 // IntNode generates the Int code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) IntNode(n *Node) {
+func (g *CodeGenerator) IntNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%d", n.Value.Int()))
 }
 
 // UintNode generates the Uint code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) UintNode(n *Node) {
+func (g *CodeGenerator) UintNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%d", n.Value.Uint()))
 }
 
 // BoolNode generates the bool code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) BoolNode(n *Node) {
+func (g *CodeGenerator) BoolNode(n *Node) {
 	g.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
 }
 
@@ -248,7 +248,7 @@ func (g *Generator) BoolNode(n *Node) {
 // `interface{}` since there is no way in Go to differentiate that I am aware of,
 // and even if there is I don't think differentiating would be worth the effort
 // when the use-case of this project is considered.
-func (g *Generator) InterfaceNode(n *Node) {
+func (g *CodeGenerator) InterfaceNode(n *Node) {
 	g.WriteString("any(")
 	g.WriteCode(n.nodes[0])
 	g.WriteByte('}')
@@ -258,7 +258,7 @@ func (g *Generator) InterfaceNode(n *Node) {
 // `strings.Builder` ASSUMING it ever gets called.
 //
 //goland:noinspection GoUnusedParameter
-func (g *Generator) PointerNode(*Node) {
+func (g *CodeGenerator) PointerNode(*Node) {
 	//if g.VarGenerated(n.nodes[0]) {
 	//	// If var is already generated then g.RefNode() will output a variable name which
 	//	// we'll need to get the address of with `&. But if not, it will output a `nil`
@@ -271,7 +271,7 @@ func (g *Generator) PointerNode(*Node) {
 
 // StructNode generates the struct code from a Node using the embedded
 // `strings.Builder.`
-func (g *Generator) StructNode(n *Node) {
+func (g *CodeGenerator) StructNode(n *Node) {
 	g.WriteString(n.Name)
 	g.WriteByte('{')
 	for _, node := range n.nodes {
@@ -284,7 +284,7 @@ func (g *Generator) StructNode(n *Node) {
 }
 
 // MapNode generates the map code from a Node using the embedded `strings.Builder.`
-func (g *Generator) MapNode(n *Node) {
+func (g *CodeGenerator) MapNode(n *Node) {
 	g.WriteString(n.Name)
 	g.WriteByte('{')
 	for _, node := range n.nodes {
@@ -297,18 +297,18 @@ func (g *Generator) MapNode(n *Node) {
 }
 
 // ArrayNode generates the array code from a Node using the embedded `strings.Builder.`
-func (g *Generator) ArrayNode(n *Node) {
+func (g *CodeGenerator) ArrayNode(n *Node) {
 	g.nodeElements(n)
 }
 
 // SliceNode generates the slice code from a Node using the embedded `strings.Builder.`
-func (g *Generator) SliceNode(n *Node) {
+func (g *CodeGenerator) SliceNode(n *Node) {
 	g.nodeElements(n)
 }
 
 // nodeElements generates the element's code for both arrays and slices using the
 // embedded `strings.Builder.`
-func (g *Generator) nodeElements(n *Node) {
+func (g *CodeGenerator) nodeElements(n *Node) {
 	g.WriteString(n.Name)
 	g.WriteByte('{')
 	for _, node := range n.nodes {
@@ -324,7 +324,7 @@ func (g *Generator) nodeElements(n *Node) {
 // handle them differently.
 //
 //goland:noinspection GoUnusedParameter
-func (g *Generator) InvalidNode(*Node) {
+func (g *CodeGenerator) InvalidNode(*Node) {
 	g.WriteString("nil")
 }
 
@@ -332,7 +332,7 @@ func (g *Generator) InvalidNode(*Node) {
 // generated and thus can be referenced by name.
 //
 //goland:noinspection GoUnusedParameter
-func (g *Generator) VarGenerated(*Node) (pointing bool) {
+func (g *CodeGenerator) VarGenerated(*Node) (pointing bool) {
 	panic("Verify this is ever called")
 	//	if n.Type != RefNode {
 	//		goto end
@@ -345,7 +345,7 @@ func (g *Generator) VarGenerated(*Node) (pointing bool) {
 // ancestorVarname looks for the varname from the Node's parent, or its parent,
 // or its parent, and so on recursively, until there is no more parents left,
 // e.g. we get to the root of the data structure.
-func (g *Generator) ancestorVarname(n *Node) (s string) {
+func (g *CodeGenerator) ancestorVarname(n *Node) (s string) {
 	if n.parent == nil {
 		goto end
 	}
@@ -365,7 +365,7 @@ end:
 // etc. In future iterations we may allow developer-defined names, but only if
 // this project gets a LOT of interest, which I kinda doubt will happen, or
 // someone submits a PR, or someone pays me to do it. #fwiw
-func (g *Generator) nodeVarname(n *Node) string {
+func (g *CodeGenerator) nodeVarname(n *Node) string {
 	if n.varname != "" {
 		goto end
 	}
@@ -388,12 +388,12 @@ end:
 // property name of the struct to be assigned (or maybe not, we'll see if this
 // assumption is wrong after we do
 // // testing for more use-cases.
-func (g *Generator) lhs(node *Node) (lhs string) {
+func (g *CodeGenerator) lhs(node *Node) (lhs string) {
 	return fmt.Sprintf("%s.%s", g.ancestorVarname(node), node.parent.Name)
 }
 
 // assignOp will return assigment operator; an `=` if a field
-func (g *Generator) assignOp(node *Node) (op string) {
+func (g *CodeGenerator) assignOp(node *Node) (op string) {
 	switch node.parent.Type {
 	case FieldNode, ElementNode:
 		op = "="
@@ -407,12 +407,12 @@ func (g *Generator) assignOp(node *Node) (op string) {
 // This will always be a pointer variable reference given the nature of the
 // output (or maybe not, we'll see if this assumption is wrong after we do
 // testing for more use-cases.
-func (g *Generator) rhs(node *Node) (rhs string) {
+func (g *CodeGenerator) rhs(node *Node) (rhs string) {
 	return "&" + g.nodeVarname(node)
 }
 
 // wasGenerated returns true if the node has already been generated
-func (g *Generator) wasGenerated(node *Node) (generated bool) {
+func (g *CodeGenerator) wasGenerated(node *Node) (generated bool) {
 
 	if len(g.genMap) == 0 {
 		goto end
@@ -434,7 +434,7 @@ end:
 // findPointedToNode returns true when the node passed is found with a parent
 // whose type is a pointer. It dereferences both Ref and Pointer nodes before
 // looking for a match.
-func (g *Generator) findPointedToNode(n *Node) (found bool) {
+func (g *CodeGenerator) findPointedToNode(n *Node) (found bool) {
 	switch {
 	case n.Type == RefNode && n.NodeRef != nil:
 		found = g.findPointedToNode(n.NodeRef)
@@ -456,7 +456,7 @@ end:
 }
 
 // returnVarAndType will return the return variable and its type for the node received.
-func (g *Generator) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
+func (g *CodeGenerator) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
 	if isPtr {
 		rv += "&" + g.nodeVarname(n)
 		rt = "*" + g.maybeStripPackage(n.Value.Type().String())
@@ -475,7 +475,7 @@ end:
 // writeAssignment will write an assigment previously registered by
 // `registerAssignment()`, which will be called in `NodeMarshaler.Generate()` after
 // the *Node in which it was register for is written.
-func (g *Generator) writeAssignment(a *Assignment) {
+func (g *CodeGenerator) writeAssignment(a *Assignment) {
 	g.WriteString(fmt.Sprintf("%s%s %s %s\n",
 		g.Indent,
 		a.LHS,
@@ -488,7 +488,7 @@ func (g *Generator) writeAssignment(a *Assignment) {
 // generated after the current Node is being generated in
 // `NodeMarshaler.Generate()`. Assignment lines take on the form of `<LHS> <Op>
 // <RHS>` e.g. `var1.prop = 10` or `var2 := []string{}`
-func (g *Generator) registerAssignment(n *Node) {
+func (g *CodeGenerator) registerAssignment(n *Node) {
 	var parent *Node
 	if n == nil {
 		// We are at the root
@@ -513,11 +513,11 @@ func (g *Generator) registerAssignment(n *Node) {
 end:
 }
 
-// pkgStripRE is a regular expression used by Generator.maybeStripPackage()
+// pkgStripRE is a regular expression used by CodeGenerator.maybeStripPackage()
 var pkgStripRE *regexp.Regexp
 
 // maybeStripPackage will remove `foo.` from `foo.Bar`, *foo.Bar`, []foo.Bar` and so on.
-func (g *Generator) maybeStripPackage(name string) string {
+func (g *CodeGenerator) maybeStripPackage(name string) string {
 	if name == "&" {
 		goto end
 	}

@@ -85,7 +85,7 @@ func (m *NodeMarshaler) Generate() string {
 	var n *Node
 	var wasPtr bool
 
-	g := NewGenerator(m.omitPkg)
+	g := NewCodeGenerator(m.omitPkg)
 	nodeCnt := m.NodeCount()
 	for i := 1; i <= nodeCnt; i++ {
 		n, i, wasPtr = m.selectNode(i)
