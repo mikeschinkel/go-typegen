@@ -78,8 +78,16 @@ func (b *CodeBuilder) NodeCount() int {
 // so that Generate() can generate a pointer return value, if so.
 func (b *CodeBuilder) selectNode(index int) (n *Node, _ int, nt NodeType) {
 	n = b.nodes[index]
-	if n.Type != PointerNode {
+	if !isOneOf(n.Type, InterfaceNode, PointerNode) {
 		goto end
+	}
+	if n.Type == InterfaceNode {
+		for _, node := range b.genMap {
+			if isSame(n.nodes[0].NodeRef.Value, node.Value) {
+				goto end
+			}
+		}
+		print()
 	}
 	nt = n.Type
 	if index >= b.NodeCount() {
@@ -329,8 +337,18 @@ func (b *CodeBuilder) UnsafePointerNode(*Node) {
 // and even if there is I don't think differentiating would be worth the effort
 // when the use-case of this project is considered.
 func (b *CodeBuilder) InterfaceNode(n *Node) {
-	b.WriteString("any(")
+
+	// TODO: Find a better solution than this hack which is designed to get RedNode()
+	// 			 to run WriteCode() for a special case. Figure out the patter really
+	// 			 needed and then implement that.
+	save := b.Builder
+	b.Builder = strings.Builder{}
 	b.WriteCode(n.nodes[0])
+	iFace := b.String()
+	b.Builder = save
+
+	b.WriteString("any(")
+	b.WriteString(iFace)
 	b.WriteByte(')')
 }
 
@@ -575,6 +593,8 @@ func (b *CodeBuilder) writeAssignment(a *Assignment) {
 // `NodeMarshaler.Build()`. Assignment lines take on the form of `<LHS> <Op>
 // <RHS>` e.g. `var1.prop = 10` or `var2 := []string{}`
 func (b *CodeBuilder) registerAssignment(n *Node) {
+	var assigned bool
+	var why string
 	var parent *Node
 	if n == nil {
 		panic("Unexpected nil Node")
@@ -583,20 +603,54 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 	if parent == nil {
 		panic("Handle when node.Parent is nil")
 	}
-	switch parent.Type {
-	case FieldNode:
+	switch {
+	case parent.Type == FieldNode:
 		b.assignments = append(b.assignments, &Assignment{
 			LHS: b.fieldLHS(n),
 			Op:  b.assignOp(n),
 			RHS: b.rhs(n),
 		})
-	case ElementNode:
+		assigned = true
+	case parent.Type == ElementNode:
 		b.assignments = append(b.assignments, &Assignment{
 			LHS: b.elementLHS(n),
 			Op:  b.assignOp(n),
 			RHS: b.rhs(n),
 		})
+		assigned = true
+	case parent.Type == InterfaceNode:
+		// TODO: Make this more generic as we discover more test cases
+		if parent.parent == nil {
+			why = "parent.parent==nil"
+			goto end
+		}
+		if parent.parent.Type != SliceNode {
+			why = "parent.parent.Type!=SliceNode"
+			goto end
+		}
+		if n.Type != RefNode {
+			why = "n.Type!=RefNode"
+			goto end
+		}
+		if n.NodeRef == nil {
+			why = "n.NodeRef==nil"
+			goto end
+		}
+		if n.NodeRef.Type != StructNode {
+			why = "n.NodeRef.Type!=StructNode"
+			goto end
+		}
+		n = n.NodeRef
+		b.assignments = append(b.assignments, &Assignment{
+			LHS: fmt.Sprintf("%s[%d]", b.ancestorVarname(n), n.Index),
+			Op:  b.assignOp(n),
+			RHS: b.rhs(n),
+		})
 	default:
-		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
+		why = "👈🏽"
+	}
+end:
+	if !assigned {
+		panicf("Node type '%s' not implemented: %s", parent.Type, why)
 	}
 }
