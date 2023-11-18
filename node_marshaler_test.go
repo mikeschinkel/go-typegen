@@ -34,10 +34,9 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 	recur2.recur = make([]*recur2Struct, 1)
 	recur2.recur[0] = &recur2
 
-	iFace := iFaceStruct{
-		iFace1: interface{}("Hello"),
-		iFace2: any(10),
-	}
+	iFace := iFaceStruct{}
+	iFace.iFace2 = any(10)
+	iFace.iFace1 = interface{}("Hello")
 
 	tests := []struct {
 		name  string
