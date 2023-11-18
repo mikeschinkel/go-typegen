@@ -59,6 +59,9 @@ func (n *Node) Varname() string {
 }
 
 func (n *Node) SetVarname(name string) {
+	if n.varname != "" {
+		panicf("Unexpected: overwriting varname '%s'", name)
+	}
 	n.varname = name
 }
 

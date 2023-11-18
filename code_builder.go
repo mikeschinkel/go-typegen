@@ -604,8 +604,7 @@ func (b *CodeBuilder) writeAssignment(a *Assignment) {
 func (b *CodeBuilder) registerAssignment(n *Node) {
 	var parent *Node
 	if n == nil {
-		// We are at the root
-		goto end
+		panic("Unexpected nil Node")
 	}
 	parent = n.parent
 	if parent == nil {
@@ -629,5 +628,4 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 	default:
 		panicf("Node type '%s' not implemented", nodeTypeName(parent.Type))
 	}
-end:
 }
