@@ -76,19 +76,21 @@ func (b *CodeBuilder) NodeCount() int {
 // dereferences it by selecting the next node in the list of .nodes and
 // increments and returns the index. It also returns if it was a pointer
 // so that Generate() can generate a pointer return value, if so.
-func (b *CodeBuilder) selectNode(index int) (n *Node, _ int, wasPtr bool) {
+func (b *CodeBuilder) selectNode(index int) (n *Node, _ int, nt NodeType) {
 	n = b.nodes[index]
 	if n.Type != PointerNode {
 		goto end
 	}
-	wasPtr = true
+	nt = n.Type
 	if index >= b.NodeCount() {
+		// We are at the element node, but it is a pointer or interface.
+		n = n.nodes[0]
 		goto end
 	}
 	index++
 	n = b.nodes[index]
 end:
-	return n, index, wasPtr
+	return n, index, nt
 }
 
 func (b *CodeBuilder) String() string {
@@ -98,17 +100,17 @@ func (b *CodeBuilder) String() string {
 func (b *CodeBuilder) Build() string {
 	var returnVar, returnType string
 	var n *Node
-	var wasPtr bool
+	var nt NodeType
 
 	nodeCnt := b.NodeCount()
 	for i := 1; i <= nodeCnt; i++ {
-		n, i, wasPtr = b.selectNode(i)
+		n, i, nt = b.selectNode(i)
 		if b.wasGenerated(n) {
 			// n is pointed at by prior, so we've already output it
 			continue
 		}
 		if returnVar == "" {
-			returnVar, returnType = b.returnVarAndType(n, wasPtr)
+			returnVar, returnType = b.returnVarAndType(n, nt)
 		}
 		b.WriteString(fmt.Sprintf("%s%s := ", b.Indent, b.nodeVarname(n)))
 		b.prefixLen = b.Builder.Len()
@@ -555,18 +557,22 @@ end:
 }
 
 // returnVarAndType will return the return variable and its type for the node received.
-func (b *CodeBuilder) returnVarAndType(n *Node, isPtr bool) (rv, rt string) {
-	if isPtr {
+func (b *CodeBuilder) returnVarAndType(n *Node, nt NodeType) (rv, rt string) {
+	switch nt {
+	case PointerNode:
 		rv += "&" + b.nodeVarname(n)
 		rt = "*" + maybeStripPackage(n.Value.Type().String(), b.omitPkg)
 		goto end
-	}
-	rv = b.nodeVarname(n)
-	rt = "error" // error is a built-in type that can can be nil.
-	if n.Value.IsValid() {
-		// Get the return type, and with `.omitPkg` package stripped, if applicable
-		rt = maybeStripPackage(n.Value.Type().String(), b.omitPkg)
-		rt = replaceInterfaceWithAny(rt)
+	case InterfaceNode:
+		fallthrough
+	default:
+		rv = b.nodeVarname(n)
+		rt = "error" // error is a built-in type that can can be nil.
+		if n.Value.IsValid() {
+			// Get the return type, and with `.omitPkg` package stripped, if applicable
+			rt = maybeStripPackage(n.Value.Type().String(), b.omitPkg)
+			rt = replaceInterfaceWithAny(rt)
+		}
 	}
 end:
 	return rv, rt
