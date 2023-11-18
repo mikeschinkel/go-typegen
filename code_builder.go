@@ -457,7 +457,14 @@ end:
 // assumption is wrong after we do
 // // testing for more use-cases.
 func (b *CodeBuilder) lhs(node *Node) (lhs string) {
-	return fmt.Sprintf("%s.%s", b.ancestorVarname(node), node.parent.Name)
+	if node.parent != nil && node.parent.Type == ElementNode {
+		// Handles `var1[0]` of []any{1, 2, 3} for var1[0] = var2
+		lhs = fmt.Sprintf("%s[%d]", b.ancestorVarname(node), node.Index)
+		goto end
+	}
+	lhs = fmt.Sprintf("%s.%s", b.ancestorVarname(node), node.parent.Name)
+end:
+	return lhs
 }
 
 // assignOp will return assigment operator; an `=` if a field
