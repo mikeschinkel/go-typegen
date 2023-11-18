@@ -315,7 +315,8 @@ func (b *CodeBuilder) BoolNode(n *Node) {
 	b.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
 }
 
-func (b *CodeBuilder) UnsafePointerNode(n *Node) {
+//goland:noinspection GoUnusedParameter
+func (b *CodeBuilder) UnsafePointerNode(*Node) {
 	//b.WriteString(fmt.Sprintf("%d", n.Value.UnsafePointer()))
 	// Should not output a real unsafePointer
 	// TODO: Find a way to handle this better
