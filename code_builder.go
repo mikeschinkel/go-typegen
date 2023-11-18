@@ -531,36 +531,8 @@ func (b *CodeBuilder) wasGenerated(node *Node) (generated bool) {
 		goto end
 	}
 
-	if b.findPointedToNode(node) {
-		generated = true
-		goto end
-	}
 end:
 	return generated
-}
-
-// findPointedToNode returns true when the node passed is found with a parent
-// whose type is a pointer. It dereferences both Ref and Pointer nodes before
-// looking for a match.
-func (b *CodeBuilder) findPointedToNode(n *Node) (found bool) {
-	switch {
-	case n.Type == RefNode && n.NodeRef != nil:
-		found = b.findPointedToNode(n.NodeRef)
-		goto end
-
-	case n.Type == PointerNode && len(n.nodes) != 0:
-		found = b.findPointedToNode(n.nodes[0])
-		goto end
-
-	case n.NodeRef == nil && len(n.nodes) == 0:
-		goto end
-
-	case n.parent != nil && n.parent.Type == PointerNode:
-		found = true
-
-	}
-end:
-	return found
 }
 
 // returnVarAndType will return the return variable and its type for the node received.
