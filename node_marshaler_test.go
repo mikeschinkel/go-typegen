@@ -107,7 +107,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		{
 			name:  "Pointer to struct with indirect property pointing to itself",
 			value: &recur2,
-			want:  wantPtrValue(`recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{&var1,}%s  var1.recur = var2`, "\n", "\n"),
+			want:  wantPtrValue(`recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{nil,}%s  var1.recur = var2%s  var2[0] = &var1`, "\n", "\n", "\n"),
 		},
 		{
 			name:  "Pointer to struct with property pointing to itself",
