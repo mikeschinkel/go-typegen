@@ -167,6 +167,8 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 		b.StringNode(n)
 	case BoolNode:
 		b.BoolNode(n)
+	case FuncNode:
+		b.FuncNode(n)
 	case InvalidNode:
 		b.InvalidNode(n)
 	case SliceNode:
@@ -196,9 +198,12 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 		b.Float32Node(n)
 	case Float64Node:
 		b.Float64Node(n)
+	case UintptrNode:
+		b.UintptrNode(n)
 	case UnsafePointerNode:
 		b.UnsafePointerNode(n)
-
+	default:
+		panicf("Unhandled node type '%s'", n.Type)
 	}
 }
 
@@ -321,6 +326,19 @@ func (b *CodeBuilder) UintNode(n *Node) {
 // `strings.Builder.`
 func (b *CodeBuilder) BoolNode(n *Node) {
 	b.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
+}
+
+// FuncNode generates the func code from a Node using the embedded
+// `strings.Builder.`
+//
+//goland:noinspection GoUnusedParameter
+func (b *CodeBuilder) FuncNode(*Node) {
+	// TODO: Find a way to handle these so the output will compile
+	b.WriteString("func(){}")
+}
+
+func (b *CodeBuilder) UintptrNode(n *Node) {
+	b.WriteString(fmt.Sprintf("%d", n.Value.Uint()))
 }
 
 //goland:noinspection GoUnusedParameter
