@@ -319,7 +319,7 @@ func (b *CodeBuilder) BoolNode(n *Node) {
 func (b *CodeBuilder) InterfaceNode(n *Node) {
 	b.WriteString("any(")
 	b.WriteCode(n.nodes[0])
-	b.WriteByte('}')
+	b.WriteByte(')')
 }
 
 // PointerNode generates the pointer code from a Node using the embedded
