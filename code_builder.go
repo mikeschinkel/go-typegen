@@ -462,20 +462,18 @@ end:
 	return n.varname
 }
 
-// lhs return the left-hand side for an assignment as a string, given a *Node
-// This will always be the var name of the parent node, e.g. `var1` plus the
-// property name of the struct to be assigned (or maybe not, we'll see if this
-// assumption is wrong after we do
-// // testing for more use-cases.
-func (b *CodeBuilder) lhs(node *Node) (lhs string) {
-	if node.parent != nil && node.parent.Type == ElementNode {
-		// Handles `var1[0]` of []any{1, 2, 3} for var1[0] = var2
-		lhs = fmt.Sprintf("%s[%d]", b.ancestorVarname(node), node.Index)
-		goto end
-	}
-	lhs = fmt.Sprintf("%s.%s", b.ancestorVarname(node), node.parent.Name)
-end:
-	return lhs
+// fieldLHS return the left-hand side for a struct field assignment as a string,
+// given a *Node. This will always be the var name of the parent node, e.g.
+// `var1` plus the property name of the struct to be assigned.
+func (b *CodeBuilder) fieldLHS(node *Node) (lhs string) {
+	return fmt.Sprintf("%s.%s", b.ancestorVarname(node), node.parent.Name)
+}
+
+// lhs return the left-hand side for an slice or array element assignment as a
+// string, given a *Node. This will always be the var name of the parent node,
+// e.g. `var1` plus the element index of the slice/array to be assigned.
+func (b *CodeBuilder) elementLHS(node *Node) (lhs string) {
+	return fmt.Sprintf("%s[%d]", b.ancestorVarname(node), node.Index)
 }
 
 // assignOp will return assigment operator; an `=` if a field
@@ -616,9 +614,15 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 	switch parent.Type {
 	case PointerNode:
 		b.registerAssignment(parent.parent)
-	case FieldNode, ElementNode:
+	case FieldNode:
 		b.assignments = append(b.assignments, &Assignment{
-			LHS: b.lhs(n),
+			LHS: b.fieldLHS(n),
+			Op:  b.assignOp(n),
+			RHS: b.rhs(n),
+		})
+	case ElementNode:
+		b.assignments = append(b.assignments, &Assignment{
+			LHS: b.elementLHS(n),
 			Op:  b.assignOp(n),
 			RHS: b.rhs(n),
 		})
