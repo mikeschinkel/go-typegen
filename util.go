@@ -40,7 +40,7 @@ end:
 	return same
 }
 
-var iFaceRE = regexp.MustCompile(`^(\W*)interface \{\}`)
+var iFaceRE = regexp.MustCompile(`^(\W*)interface \{}`)
 
 func replaceInterfaceWithAny(name string) string {
 	return iFaceRE.ReplaceAllString(name, "${1}any")
