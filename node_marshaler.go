@@ -17,35 +17,42 @@ type NodeMarshaler struct {
 	debugString string
 }
 
-func NewNodeMarshaler(value any) *NodeMarshaler {
-	m := &NodeMarshaler{
-		original: value,
-		value:    reflect.ValueOf(value),
-		nodeMap:  make(NodeMap),
-		ptrMap:   make(PointerMap),
-		nodes:    make(Nodes, 1), // Zero element is unused so node.index==0 can represent invalid
-	}
-
-	if m.value.Kind() == reflect.Struct {
-		panic("NodeMarshaler currently does not support generating code for non-pointer structs (and probably never will.) Pass a pointer to the struct instead.")
-	}
-
+func NewNodeMarshaler() *NodeMarshaler {
+	m := &NodeMarshaler{}
 	m.resetDebugString()
 
 	return m
+}
+
+func (m *NodeMarshaler) reinitialize() {
+	m.nodeMap = make(NodeMap)
+	m.ptrMap = make(PointerMap)
+	// Zero element is unused so node.index==0 can represent invalid
+	m.nodes = make(Nodes, 1)
 }
 
 func (m *NodeMarshaler) Nodes() Nodes {
 	return m.nodes
 }
 
-func (m *NodeMarshaler) Marshal() Nodes {
-	m.root = m.marshalValue(m.value, nil)
+func (m *NodeMarshaler) Marshal(value any) Nodes {
+	m.reinitialize()
+	rv := reflect.ValueOf(value)
+
+	if rv.Kind() == reflect.Struct {
+		panic("NodeMarshaler.Marshal() currently does not support generating code " +
+			"for non-pointer structs (and probably never will.) " +
+			"Pass a pointer to the struct instead.",
+		)
+	}
+
+	m.original = value
+	m.root = m.marshalValue(rv, nil)
 
 	if m.NodeCount() == 0 {
 		// If the root value is not a container, and thus not yet registered, registerNode
 		// the one value, so it can be converted in .String().
-		m.registerNode(m.value, m.root)
+		m.registerNode(rv, m.root)
 	}
 
 	// Ensure the root node is not duplicated if referenced elsewhere by making sure
