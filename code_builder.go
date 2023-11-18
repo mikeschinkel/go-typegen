@@ -476,7 +476,31 @@ func (b *CodeBuilder) assignOp(node *Node) (op string) {
 // output (or maybe not, we'll see if this assumption is wrong after we do
 // testing for more use-cases.
 func (b *CodeBuilder) rhs(node *Node) (rhs string) {
+	if b.omitAddressOf(node) {
+		return b.nodeVarname(node)
+	}
 	return "&" + b.nodeVarname(node)
+}
+
+// omitAddressOf returns true if we should omit the address of operator (&) for
+// the right-hand side.
+func (b *CodeBuilder) omitAddressOf(node *Node) (omit bool) {
+
+	if node.NodeRef == nil {
+		goto end
+	}
+	if len(node.NodeRef.nodes) == 0 {
+		goto end
+	}
+	if node.NodeRef.Type == PointerNode {
+		goto end
+	}
+	if node.NodeRef.nodes[0].Type == PointerNode {
+		goto end
+	}
+	omit = true
+end:
+	return omit
 }
 
 // wasGenerated returns true if the node has already been generated
