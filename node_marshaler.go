@@ -4,19 +4,21 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 )
 
 type NodeMarshaler struct {
-	value    reflect.Value
-	original any
-	nodeMap  NodeMap
-	nodes    Nodes
-	ptrMap   PointerMap
-	root     *Node
+	value       reflect.Value
+	original    any
+	nodeMap     NodeMap
+	nodes       Nodes
+	ptrMap      PointerMap
+	root        *Node
+	debugString string
 }
 
 func NewNodeMarshaler(value any) *NodeMarshaler {
-	cb := &NodeMarshaler{
+	m := &NodeMarshaler{
 		original: value,
 		value:    reflect.ValueOf(value),
 		nodeMap:  make(NodeMap),
@@ -24,11 +26,13 @@ func NewNodeMarshaler(value any) *NodeMarshaler {
 		nodes:    make(Nodes, 1), // Zero element is unused so node.index==0 can represent invalid
 	}
 
-	if cb.value.Kind() == reflect.Struct {
+	if m.value.Kind() == reflect.Struct {
 		panic("NodeMarshaler currently does not support generating code for non-pointer structs (and probably never will.) Pass a pointer to the struct instead.")
 	}
 
-	return cb
+	m.resetDebugString()
+
+	return m
 }
 
 func (m *NodeMarshaler) Nodes() Nodes {
@@ -267,6 +271,7 @@ func (m *NodeMarshaler) registerNode(rv reflect.Value, n *Node) (ref reflect.Val
 	}
 	m.nodes = append(m.nodes, n)
 	n.Ref = ref
+	m.resetDebugString()
 end:
 	return ref
 }
@@ -393,4 +398,13 @@ func (m *NodeMarshaler) maybeReuniteNodes() {
 			np.parent = p
 		}
 	}
+}
+
+func (m *NodeMarshaler) resetDebugString() {
+	sb := strings.Builder{}
+	for index := len(m.nodes) - 1; index >= 1; index-- {
+		sb.WriteByte(' ')
+		sb.WriteString(m.nodes[index].Type.String())
+	}
+	m.debugString = fmt.Sprintf("[%d]%s", len(m.nodeMap), sb.String())
 }
