@@ -43,55 +43,59 @@ func (nt NodeType) String() string {
 func nodeTypeName(nt NodeType) (s string) {
 	switch nt {
 	case PointerNode:
-		s = "Pointer"
+		s = "pointer"
 	case MapNode:
-		s = "Map"
+		s = "map"
 	case ArrayNode:
-		s = "Array"
+		s = "array"
 	case SliceNode:
-		s = "Slice"
+		s = "slice"
 	case StructNode:
-		s = "Struct"
+		s = "struct"
 	case InterfaceNode:
-		s = "Interface"
+		s = "interface"
 	case StringNode:
-		s = "String"
+		s = "string"
 	case IntNode:
-		s = "Int"
+		s = "int"
 	case Int8Node:
-		s = "Int8"
+		s = "int8"
 	case Int16Node:
-		s = "Int16"
+		s = "int16"
 	case Int32Node:
-		s = "Int32"
+		s = "int32"
 	case Int64Node:
-		s = "Int64"
+		s = "int64"
 	case UintNode:
-		s = "UInt"
+		s = "uInt"
 	case Uint8Node:
-		s = "Uint8"
+		s = "uint8"
 	case Uint16Node:
-		s = "Uint16"
+		s = "uint16"
 	case Uint32Node:
-		s = "Uint32"
+		s = "uint32"
 	case Uint64Node:
-		s = "Uint64"
+		s = "uint64"
 	case Float32Node:
-		s = "Float32"
+		s = "float32"
 	case Float64Node:
-		s = "Float64"
+		s = "float64"
 	case BoolNode:
-		s = "Bool"
+		s = "bool"
+	case FuncNode:
+		s = "func"
 	case InvalidNode:
-		s = "Invalid"
+		s = "invalid"
 	case RefNode:
-		s = "Ref"
+		s = "ref"
 	case FieldNode:
-		s = "Field"
+		s = "field"
 	case ElementNode:
-		s = "Element"
+		s = "element"
 	case UnsafePointerNode:
-		s = "UnsafePointer"
+		s = "unsafePointer"
+	case UintptrNode:
+		s = "uintptr"
 	default:
 		panicf("Invalid node type: %d", nt)
 	}

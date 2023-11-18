@@ -271,25 +271,25 @@ func (b *CodeBuilder) Int64Node(n *Node) {
 // Uint8Node generates the uint8 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint8Node(n *Node) {
-	b.WriteString(fmt.Sprintf("Uint8(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint8(%d)", n.Value.Uint()))
 }
 
 // Uint16Node generates the uint16 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint16Node(n *Node) {
-	b.WriteString(fmt.Sprintf("Uint16(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint16(%d)", n.Value.Uint()))
 }
 
 // Uint32Node generates the uint32 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint32Node(n *Node) {
-	b.WriteString(fmt.Sprintf("Uint32(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint32(%d)", n.Value.Uint()))
 }
 
 // Uint64Node generates the uint64 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint64Node(n *Node) {
-	b.WriteString(fmt.Sprintf("Uint64(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint64(%d)", n.Value.Uint()))
 }
 
 // Float32Node generates the float32 code from a Node using the embedded
