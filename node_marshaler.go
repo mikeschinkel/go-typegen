@@ -40,7 +40,7 @@ func (m *NodeMarshaler) Nodes() Nodes {
 }
 
 func (m *NodeMarshaler) Marshal() Nodes {
-	m.root = m.marshalValue(m.value)
+	m.root = m.marshalValue(m.value, nil)
 
 	if m.NodeCount() == 0 {
 		// If the root value is not a container, and thus not yet registered, registerNode
@@ -59,8 +59,8 @@ func (m *NodeMarshaler) NodeCount() int {
 	return len(m.nodeMap)
 }
 
-func (m *NodeMarshaler) marshalValue(rv reflect.Value) (node *Node) {
-	node = m.marshalContainers(rv)
+func (m *NodeMarshaler) marshalValue(rv reflect.Value, parent *Node) (node *Node) {
+	node = m.marshalContainers(rv, parent)
 	if node != nil {
 		goto end
 	}
@@ -68,26 +68,27 @@ func (m *NodeMarshaler) marshalValue(rv reflect.Value) (node *Node) {
 		Name:      "scalar",
 		marshaler: m,
 		Value:     rv,
+		Parent:    parent,
 	})
 end:
 	return node
 }
 
-func (m *NodeMarshaler) marshalContainers(rv reflect.Value) (node *Node) {
+func (m *NodeMarshaler) marshalContainers(rv reflect.Value, parent *Node) (node *Node) {
 
 	switch rv.Kind() {
 	case reflect.Ptr:
-		node = m.marshalPtr(rv)
+		node = m.marshalPtr(rv, parent)
 	case reflect.Struct:
-		node = m.marshalStruct(rv)
+		node = m.marshalStruct(rv, parent)
 	case reflect.Slice:
-		node = m.marshalSlice(rv)
+		node = m.marshalSlice(rv, parent)
 	case reflect.Map:
-		node = m.marshalMap(rv)
+		node = m.marshalMap(rv, parent)
 	case reflect.Interface:
-		node = m.marshalInterface(rv)
+		node = m.marshalInterface(rv, parent)
 	case reflect.Array:
-		node = m.marshalArray(rv)
+		node = m.marshalArray(rv, parent)
 	default:
 		goto end
 	}
@@ -96,21 +97,21 @@ end:
 }
 
 // marshalArray marshals an array value to create a Node
-func (m *NodeMarshaler) marshalArray(rv reflect.Value) (node *Node) {
-	return m.marshalElements(rv, func() string {
+func (m *NodeMarshaler) marshalArray(rv reflect.Value, parent *Node) (node *Node) {
+	return m.marshalElements(rv, parent, func() string {
 		return fmt.Sprintf("[%d]%s", rv.Len(), rv.Type().Elem())
 	})
 }
 
 // marshalSlice marshals a slice value to create a Node
-func (m *NodeMarshaler) marshalSlice(rv reflect.Value) (node *Node) {
-	return m.marshalElements(rv, func() string {
+func (m *NodeMarshaler) marshalSlice(rv reflect.Value, parent *Node) (node *Node) {
+	return m.marshalElements(rv, parent, func() string {
 		return fmt.Sprintf("[]%s", rv.Type().Elem())
 	})
 }
 
 // marshalElements marshals both array and slice values to create Nodes
-func (m *NodeMarshaler) marshalElements(rv reflect.Value, nameFunc func() string) (node *Node) {
+func (m *NodeMarshaler) marshalElements(rv reflect.Value, parent *Node, nameFunc func() string) (node *Node) {
 	var ref reflect.Value
 
 	node, found := m.isRegistered(rv)
@@ -134,7 +135,7 @@ func (m *NodeMarshaler) marshalElements(rv reflect.Value, nameFunc func() string
 			Index:     i,
 		})
 		node.AddNode(child)
-		childValue := m.marshalValue(rv.Index(i))
+		childValue := m.marshalValue(rv.Index(i), node)
 		childValue.Index = i
 		childValue.Name = fmt.Sprintf("Value %d", i)
 		childValue.resetDebugString()
@@ -144,7 +145,7 @@ end:
 	return m.newRefNode(node, ref)
 }
 
-func (m *NodeMarshaler) marshalMap(rv reflect.Value) (node *Node) {
+func (m *NodeMarshaler) marshalMap(rv reflect.Value, parent *Node) (node *Node) {
 	var name string
 	var ref reflect.Value
 
@@ -164,15 +165,15 @@ func (m *NodeMarshaler) marshalMap(rv reflect.Value) (node *Node) {
 	keys = m.sortedKeys(rv)
 	node.SetNodeCount(len(keys))
 	for _, key := range keys {
-		child := m.marshalValue(key)
+		child := m.marshalValue(key, node)
 		node.AddNode(child)
-		child.AddNode(m.marshalValue(rv.MapIndex(key)))
+		child.AddNode(m.marshalValue(rv.MapIndex(key), child))
 	}
 end:
 	return m.newRefNode(node, ref)
 }
 
-func (m *NodeMarshaler) marshalPtr(rv reflect.Value) (node *Node) {
+func (m *NodeMarshaler) marshalPtr(rv reflect.Value, parent *Node) (node *Node) {
 	var ref reflect.Value
 
 	node, found := m.isRegistered(rv)
@@ -184,6 +185,7 @@ func (m *NodeMarshaler) marshalPtr(rv reflect.Value) (node *Node) {
 			Name:      "nil",
 			marshaler: m,
 			Value:     rv,
+			Parent:    parent,
 		})
 		goto end
 	}
@@ -191,14 +193,15 @@ func (m *NodeMarshaler) marshalPtr(rv reflect.Value) (node *Node) {
 		Name:      "&",
 		marshaler: m,
 		Value:     rv,
+		Parent:    parent,
 	})
 	ref = m.registerNode(rv, node)
-	node.AddNode(m.marshalValue(rv.Elem()))
+	node.AddNode(m.marshalValue(rv.Elem(), node))
 end:
 	return m.newRefNode(node, ref)
 }
 
-func (m *NodeMarshaler) marshalInterface(rv reflect.Value) (node *Node) {
+func (m *NodeMarshaler) marshalInterface(rv reflect.Value, parent *Node) (node *Node) {
 	var ref reflect.Value
 
 	node, found := m.isRegistered(rv)
@@ -210,6 +213,7 @@ func (m *NodeMarshaler) marshalInterface(rv reflect.Value) (node *Node) {
 			Name:      "nil",
 			marshaler: m,
 			Value:     rv,
+			Parent:    parent,
 		})
 		goto end
 	}
@@ -217,14 +221,15 @@ func (m *NodeMarshaler) marshalInterface(rv reflect.Value) (node *Node) {
 		Name:      rv.Type().String(),
 		marshaler: m,
 		Value:     rv,
+		Parent:    parent,
 	})
 	ref = m.registerNode(rv, node)
-	node.AddNode(m.marshalValue(rv.Elem()))
+	node.AddNode(m.marshalValue(rv.Elem(), node))
 end:
 	return m.newRefNode(node, ref)
 }
 
-func (m *NodeMarshaler) marshalStruct(rv reflect.Value) (node *Node) {
+func (m *NodeMarshaler) marshalStruct(rv reflect.Value, parent *Node) (node *Node) {
 	var ref reflect.Value
 
 	node, found := m.isRegistered(rv)
@@ -235,6 +240,7 @@ func (m *NodeMarshaler) marshalStruct(rv reflect.Value) (node *Node) {
 		Name:      rv.Type().String(),
 		marshaler: m,
 		Value:     rv,
+		Parent:    parent,
 	})
 	ref = m.registerNode(rv, node)
 	for i := 0; i < rv.NumField(); i++ {
@@ -245,9 +251,10 @@ func (m *NodeMarshaler) marshalStruct(rv reflect.Value) (node *Node) {
 			marshaler: m,
 			Value:     reflect.ValueOf(name),
 			Index:     i,
+			Parent:    node,
 		})
 		node.AddNode(child)
-		child.AddNode(m.marshalValue(rv.Field(i)))
+		child.AddNode(m.marshalValue(rv.Field(i), child))
 	}
 end:
 	return m.newRefNode(node, ref)

@@ -14,6 +14,7 @@ type NodeArgs struct {
 	marshaler *NodeMarshaler
 	Value     reflect.Value
 	Index     int
+	Parent    *Node
 }
 
 type Node struct {
@@ -43,6 +44,7 @@ func NewNode(args *NodeArgs) (n *Node) {
 		marshaler: args.marshaler,
 		Value:     args.Value,
 		Index:     args.Index,
+		parent:    args.Parent,
 	}
 	n.resetDebugString()
 	return n
