@@ -584,8 +584,6 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 		panic("Handle when node.Parent is nil")
 	}
 	switch parent.Type {
-	case PointerNode:
-		b.registerAssignment(parent.parent)
 	case FieldNode:
 		b.assignments = append(b.assignments, &Assignment{
 			LHS: b.fieldLHS(n),
