@@ -328,7 +328,7 @@ func (b *CodeBuilder) InterfaceNode(n *Node) {
 //
 //goland:noinspection GoUnusedParameter
 func (b *CodeBuilder) PointerNode(*Node) {
-	//if b.VarGenerated(n.nodes[0]) {
+	//if b.varGenerated(n.nodes[0]) {
 	//	// If var is already generated then b.RefNode() will output a variable name which
 	//	// we'll need to get the address of with `&. But if not, it will output a `nil`
 	//	// which we can't use `&` in front of.
@@ -397,11 +397,11 @@ func (b *CodeBuilder) InvalidNode(*Node) {
 	b.WriteString("nil")
 }
 
-// VarGenerated will return true if that variable for n.Index has already been
+// varGenerated will return true if that variable for n.Index has already been
 // generated and thus can be referenced by name.
 //
 //goland:noinspection GoUnusedParameter
-func (b *CodeBuilder) VarGenerated(*Node) (pointing bool) {
+func (b *CodeBuilder) varGenerated(*Node) (pointing bool) {
 	panic("Verify this is ever called")
 	//	if n.Type != RefNode {
 	//		goto end
