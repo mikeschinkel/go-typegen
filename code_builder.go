@@ -188,6 +188,8 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 		b.Float32Node(n)
 	case Float64Node:
 		b.Float64Node(n)
+	case UnsafePointerNode:
+		b.UnsafePointerNode(n)
 
 	}
 }
@@ -311,6 +313,13 @@ func (b *CodeBuilder) UintNode(n *Node) {
 // `strings.Builder.`
 func (b *CodeBuilder) BoolNode(n *Node) {
 	b.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
+}
+
+func (b *CodeBuilder) UnsafePointerNode(n *Node) {
+	//b.WriteString(fmt.Sprintf("%d", n.Value.UnsafePointer()))
+	// Should not output a real unsafePointer
+	// TODO: Find a way to handle this better
+	b.WriteString("-1")
 }
 
 // InterfaceNode generates the `any` code from a Node using the embedded

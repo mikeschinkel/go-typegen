@@ -7,30 +7,31 @@ import (
 type NodeType uint
 
 const (
-	PointerNode   = NodeType(reflect.Pointer)
-	MapNode       = NodeType(reflect.Map)
-	ArrayNode     = NodeType(reflect.Array)
-	SliceNode     = NodeType(reflect.Slice)
-	StructNode    = NodeType(reflect.Struct)
-	InterfaceNode = NodeType(reflect.Interface)
-	StringNode    = NodeType(reflect.String)
-	IntNode       = NodeType(reflect.Int)
-	Int8Node      = NodeType(reflect.Int8)
-	Int16Node     = NodeType(reflect.Int16)
-	Int32Node     = NodeType(reflect.Int32)
-	Int64Node     = NodeType(reflect.Int64)
-	UintNode      = NodeType(reflect.Uint)
-	Uint8Node     = NodeType(reflect.Uint8)
-	Uint16Node    = NodeType(reflect.Uint16)
-	Uint32Node    = NodeType(reflect.Uint32)
-	Uint64Node    = NodeType(reflect.Uint64)
-	Float32Node   = NodeType(reflect.Float32)
-	Float64Node   = NodeType(reflect.Float64)
-	BoolNode      = NodeType(reflect.Bool)
-	InvalidNode   = NodeType(reflect.Invalid)
-	RefNode       = NodeType(reflect.UnsafePointer + 10)
-	FieldNode     = NodeType(reflect.UnsafePointer + 11)
-	ElementNode   = NodeType(reflect.UnsafePointer + 12)
+	PointerNode       = NodeType(reflect.Pointer)
+	MapNode           = NodeType(reflect.Map)
+	ArrayNode         = NodeType(reflect.Array)
+	SliceNode         = NodeType(reflect.Slice)
+	StructNode        = NodeType(reflect.Struct)
+	InterfaceNode     = NodeType(reflect.Interface)
+	StringNode        = NodeType(reflect.String)
+	IntNode           = NodeType(reflect.Int)
+	Int8Node          = NodeType(reflect.Int8)
+	Int16Node         = NodeType(reflect.Int16)
+	Int32Node         = NodeType(reflect.Int32)
+	Int64Node         = NodeType(reflect.Int64)
+	UintNode          = NodeType(reflect.Uint)
+	Uint8Node         = NodeType(reflect.Uint8)
+	Uint16Node        = NodeType(reflect.Uint16)
+	Uint32Node        = NodeType(reflect.Uint32)
+	Uint64Node        = NodeType(reflect.Uint64)
+	Float32Node       = NodeType(reflect.Float32)
+	Float64Node       = NodeType(reflect.Float64)
+	BoolNode          = NodeType(reflect.Bool)
+	InvalidNode       = NodeType(reflect.Invalid)
+	UnsafePointerNode = NodeType(reflect.UnsafePointer)
+	RefNode           = NodeType(reflect.UnsafePointer + 10)
+	FieldNode         = NodeType(reflect.UnsafePointer + 11)
+	ElementNode       = NodeType(reflect.UnsafePointer + 12)
 )
 
 func (nt NodeType) String() string {
@@ -87,6 +88,8 @@ func nodeTypeName(nt NodeType) (s string) {
 		s = "Field"
 	case ElementNode:
 		s = "Element"
+	case UnsafePointerNode:
+		s = "UnsafePointer"
 	default:
 		panicf("Invalid node type: %d", nt)
 	}
