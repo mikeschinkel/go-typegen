@@ -448,7 +448,7 @@ func (b *CodeBuilder) nodeVarname(n *Node) string {
 	if n.varname != "" {
 		goto end
 	}
-	if n.Type == PointerNode {
+	if isOneOf(n.Type, PointerNode, InterfaceNode) {
 		n.SetVarname(b.nodeVarname(n.nodes[0]))
 		goto end
 	}
