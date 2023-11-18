@@ -122,6 +122,7 @@ func (m *NodeMarshaler) marshalElements(rv reflect.Value, parent *Node, nameFunc
 		Name:      nameFunc(),
 		marshaler: m,
 		Value:     rv,
+		Parent:    parent,
 	})
 	ref = m.registerNode(rv, node)
 
@@ -133,6 +134,7 @@ func (m *NodeMarshaler) marshalElements(rv reflect.Value, parent *Node, nameFunc
 			marshaler: m,
 			Value:     reflect.ValueOf(i),
 			Index:     i,
+			Parent:    node,
 		})
 		node.AddNode(child)
 		childValue := m.marshalValue(rv.Index(i), node)
