@@ -129,6 +129,16 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			value: interface{}(10),
 			want:  wantValue(`int`, `10`),
 		},
+		{
+			name:  "Slice of `any` containing 1,2,3",
+			value: []any{1, 2, 3},
+			want:  wantValue(`[]any`, `[]any{nil,nil,nil,}%s  var2 := any(1)%s  var3 := any(2)%s  var4 := any(3)%s  var1[0] = var2%s  var1[1] = var3%s  var1[2] = var4`, "\n", "\n", "\n", "\n", "\n", "\n"),
+		},
+		{
+			name:  "Slice of any containing \"Hello\", \"GoodBy\"",
+			value: []any{"Hello", "Goodbye"},
+			want:  wantValue(`[]any`, `[]any{nil,nil,}%s  var2 := any("Hello")%s  var3 := any("Goodbye")%s  var1[0] = var2%s  var1[1] = var3`, "\n", "\n", "\n", "\n"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
