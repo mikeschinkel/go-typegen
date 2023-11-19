@@ -25,7 +25,6 @@ type Node struct {
 	parent      *Node
 	nodes       Nodes
 	marshaler   *NodeMarshaler
-	Indent      string
 	Index       int
 	varname     string
 	debugString string
