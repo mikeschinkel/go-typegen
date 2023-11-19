@@ -763,11 +763,12 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 			Op:  b.assignOp(n),
 			RHS: b.rhs(n),
 		})
+		assigned = true
 	default:
 		why = "👈🏽"
 	}
 end:
 	if !assigned {
-		panicf("Node type '%s' not implemented: %s", parent.Type, why)
+		panicf("Node type '%s' not assigned: %s", parent.Type, why)
 	}
 }
