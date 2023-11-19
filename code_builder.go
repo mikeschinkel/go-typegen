@@ -453,7 +453,7 @@ func (b *CodeBuilder) InterfaceNode(n *Node) {
 	save := b.Builder
 	b.Builder = strings.Builder{}
 	b.WriteCode(n.nodes[0])
-	iFace := b.String()
+	iFace := b.Builder.String()
 	b.Builder = save
 
 	b.WriteString("any(")
