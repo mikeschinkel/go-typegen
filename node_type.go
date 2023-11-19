@@ -36,6 +36,29 @@ const (
 	ElementNode       = NodeType(reflect.UnsafePointer + 12)
 )
 
+var (
+	// ScalarNodeTypes groups NodeTypes that represent scalar values into a slice for
+	// convenient use with isOneOf() which is called in .scalarChildWritten().
+	ScalarNodeTypes = []NodeType{
+		StringNode,
+		IntNode,
+		Int8Node,
+		Int16Node,
+		Int32Node,
+		Int64Node,
+		UintptrNode,
+		UintNode,
+		Uint8Node,
+		Uint16Node,
+		Uint32Node,
+		Uint64Node,
+		Float32Node,
+		Float64Node,
+		BoolNode,
+		UnsafePointerNode,
+	}
+)
+
 func (nt NodeType) String() string {
 	return nodeTypeName(nt)
 }
