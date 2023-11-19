@@ -2,6 +2,7 @@ package typegen_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/mikeschinkel/go-typegen"
@@ -144,10 +145,20 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			value: []any{"Hello", "Goodbye"},
 			want:  wantValue(`[]any`, `[]any{"Hello","Goodbye",}`),
 		},
+		{
+			name:  "[]any{reflect.ValueOf(10)}",
+			value: []any{reflect.ValueOf(10)},
+			want:  wantValue(`[]any`, `[]any{reflect.ValueOf(10),}`),
+		},
+	}
+	subs := typegen.Substitutions{
+		reflect.TypeOf(reflect.Value{}): func(rv reflect.Value) string {
+			return fmt.Sprintf("reflect.ValueOf(%v)", rv.Interface())
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := typegen.NewNodeMarshaler()
+			m := typegen.NewNodeMarshaler(subs)
 			nodes := m.Marshal(tt.value)
 			b := typegen.NewCodeBuilder("getData", "typegen_test", nodes)
 			got := b.String()

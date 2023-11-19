@@ -34,6 +34,7 @@ const (
 	RefNode           = NodeType(reflect.UnsafePointer + 10)
 	FieldNode         = NodeType(reflect.UnsafePointer + 11)
 	ElementNode       = NodeType(reflect.UnsafePointer + 12)
+	SubstitutionNode  = NodeType(reflect.UnsafePointer + 13)
 )
 
 var (
@@ -56,6 +57,7 @@ var (
 		Float64Node,
 		BoolNode,
 		UnsafePointerNode,
+		SubstitutionNode,
 	}
 )
 
@@ -119,6 +121,8 @@ func nodeTypeName(nt NodeType) (s string) {
 		s = "unsafePointer"
 	case UintptrNode:
 		s = "uintptr"
+	case SubstitutionNode:
+		s = "substitution"
 	default:
 		panicf("Invalid node type: %d", nt)
 	}

@@ -7,18 +7,23 @@ import (
 	"strings"
 )
 
+type Substitutions map[reflect.Type]func(reflect.Value) string
+
 type NodeMarshaler struct {
-	value       reflect.Value
-	original    any
-	nodeMap     NodeMap
-	nodes       Nodes
-	ptrMap      PointerMap
-	root        *Node
-	debugString string
+	value         reflect.Value
+	original      any
+	nodeMap       NodeMap
+	nodes         Nodes
+	ptrMap        PointerMap
+	root          *Node
+	debugString   string
+	substitutions Substitutions
 }
 
-func NewNodeMarshaler() *NodeMarshaler {
-	m := &NodeMarshaler{}
+func NewNodeMarshaler(subs Substitutions) *NodeMarshaler {
+	m := &NodeMarshaler{
+		substitutions: subs,
+	}
 	m.resetDebugString()
 
 	return m
@@ -67,6 +72,19 @@ func (m *NodeMarshaler) NodeCount() int {
 }
 
 func (m *NodeMarshaler) marshalValue(rv reflect.Value, parent *Node) (node *Node) {
+	if rv.IsValid() {
+		subsFunc, ok := m.substitutions[rv.Type()]
+		if ok {
+			node = NewNode(&NodeArgs{
+				Name:      "substitution",
+				marshaler: m,
+				Type:      SubstitutionNode,
+				Value:     reflect.ValueOf(subsFunc(rv)),
+				Parent:    parent,
+			})
+			goto end
+		}
+	}
 	node = m.marshalContainers(rv, parent)
 	if node != nil {
 		goto end

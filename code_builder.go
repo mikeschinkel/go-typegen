@@ -205,6 +205,8 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 	n.Name = replaceInterfaceWithAny(n.Name)
 	n.resetDebugString()
 	switch n.Type {
+	case SubstitutionNode:
+		b.SubstitutionNode(n)
 	case RefNode:
 		b.RefNode(n)
 	case StructNode:
@@ -333,6 +335,12 @@ func (b *CodeBuilder) RefNode(n *Node) {
 
 	}
 end:
+}
+
+// SubstitutionNode generates the substituted string code from a Node using the
+// embedded `strings.Builder.`
+func (b *CodeBuilder) SubstitutionNode(n *Node) {
+	b.WriteString(n.Value.String())
 }
 
 // Int8Node generates the int8 code from a Node using the embedded
