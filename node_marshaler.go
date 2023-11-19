@@ -294,17 +294,14 @@ end:
 func (m *NodeMarshaler) registerNode(rv reflect.Value, n *Node) (ref reflect.Value) {
 	_, found := m.isRegistered(rv)
 	if found {
-		ref = n.Ref
 		goto end
 	}
 	m.nodeMap[rv] = n
 	n.Index = len(m.nodeMap)
-	ref = reflect.ValueOf(n.Index)
 	if rv.Kind() == reflect.Pointer {
 		m.ptrMap[rv.Pointer()] = n
 	}
 	m.nodes = append(m.nodes, n)
-	n.Ref = ref
 	m.resetDebugString()
 end:
 	return ref
@@ -398,7 +395,6 @@ func (m *NodeMarshaler) newRefNode(node *Node, ref reflect.Value) (n *Node) {
 		NodeRef:   node,
 		Type:      RefNode,
 		marshaler: m,
-		Value:     ref,
 		Index:     node.Index,
 	})
 }

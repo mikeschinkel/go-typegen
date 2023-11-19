@@ -19,7 +19,6 @@ type NodeArgs struct {
 
 type Node struct {
 	Value       reflect.Value
-	Ref         reflect.Value
 	NodeRef     *Node
 	Type        NodeType
 	Name        string
