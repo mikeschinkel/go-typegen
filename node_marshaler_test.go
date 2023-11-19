@@ -135,6 +135,11 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			want:  wantValue(`[]any`, `[]any{1,2,3,}`),
 		},
 		{
+			name:  "Simple any slice, all same numbers",
+			value: []any{1, 1, 1},
+			want:  wantValue(`[]any`, `[]any{1,1,1,}`),
+		},
+		{
 			name:  "Slice of any containing \"Hello\", \"GoodBy\"",
 			value: []any{"Hello", "Goodbye"},
 			want:  wantValue(`[]any`, `[]any{"Hello","Goodbye",}`),
