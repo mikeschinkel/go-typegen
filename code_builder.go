@@ -24,10 +24,15 @@ type CodeBuilder struct {
 	// a test package.)
 	omitPkg string
 
-	// genMap is a map that contains the nodes that have been generated so we can
-	// avoid generating multiple times. It is keys by value of `Node.Index` and
-	// its value will be the corresponding `*Node`.
+	// genMap is a map that contains the Nodes that have been generated so that we
+	// can avoid generating a Node multiple times. It is keyed by value of
+	// Node.Value and its value will be the corresponding *Node.
 	genMap GenMap
+
+	// indexMap is a Node lookup nap keyed by reflect.Value with index into .nodes
+	// for it value. Used to find a node to nullify in .nodes if it does not need to
+	// be generated.  See .scalarChildWritten to see if used.
+	indexMap IndexMap
 
 	// assignments is a slice of the assignments that need to be generated after for
 	// each node from `NodeMarshaler.nodeMap` is generated that needs to be generated.
@@ -51,6 +56,7 @@ type CodeBuilder struct {
 
 	nodes    Nodes
 	funcName string
+	Index    int
 }
 
 // NewCodeBuilder instantiates a new *CodeBuilder object with one param; the package
@@ -64,12 +70,30 @@ func NewCodeBuilder(funcName, omitPkg string, nodes Nodes) *CodeBuilder {
 		funcName:    funcName,
 		nodes:       nodes,
 		genMap:      make(GenMap),
+		indexMap:    make(IndexMap),
 		assignments: make(Assignments, 0),
 	}
 }
 
+// NodeCount returns the number of Nodes to process. NOTE that the zero element
+// is kept empty and unused which is why the -1 in the return expression.
 func (b *CodeBuilder) NodeCount() int {
 	return len(b.nodes) - 1
+}
+
+// iFaceMatchesPrior compares the .Value of the Node passed to see if it matches
+// the .Value of prior Node from this CodeBuilder's list of nodes by index,
+// returning true if so.
+func (b *CodeBuilder) matchesPrior(n *Node, index int) (matches bool) {
+	if len(n.nodes) == 0 {
+		goto end
+	}
+	matches = isSame(
+		n.nodes[0].Value,
+		b.nodes[index-1].Value,
+	)
+end:
+	return matches
 }
 
 // selectNode selects a node for use in Generate(). If it is a pointer it
@@ -77,26 +101,43 @@ func (b *CodeBuilder) NodeCount() int {
 // increments and returns the index. It also returns if it was a pointer
 // so that Generate() can generate a pointer return value, if so.
 func (b *CodeBuilder) selectNode(index int) (n *Node, _ int, nt NodeType) {
+	// Get the current Node to decide if we use it or skip it
 	n = b.nodes[index]
-	if !isOneOf(n.Type, InterfaceNode, PointerNode) {
+	if n == nil {
+		// b.scalarChildWritten() nils scalar nodes it does not need to output
 		goto end
 	}
-	if n.Type == InterfaceNode {
-		for _, node := range b.genMap {
-			if isSame(n.nodes[0].NodeRef.Value, node.Value) {
-				goto end
-			}
-		}
-		print()
+	if !isOneOf(n.Type, InterfaceNode, PointerNode) {
+		// Anything besides a Pointer or Interface does not need to be skipped, unless it
+		// was nilled in `scalarChildWritten(), and we handled that already just before
+		// this if statement.
+		goto end
 	}
+	// Some interfaces needd to be skipped, like the ones that preced a value, but
+	// others are children and should not be skipped.
+	if n.Type == InterfaceNode && !b.matchesPrior(n, index) {
+		// Seems we did not match the prior Node in .nodes to do not skip it.
+		goto end
+	}
+	// We are going to skip it, so get the NodeType to return so .returnVarAndType()
+	// can know how if it needs to use pointer syntax.
 	nt = n.Type
 	if index >= b.NodeCount() {
-		// We are at the element node, but it is a pointer or interface.
+		// We are at the last Node in .nodes, but it is (unexpectedly?) a pointer or
+		// interface so we need to deference so we do not generate a pointer, since
+		// pointers are handled when generated os assignments.
 		n = n.nodes[0]
 		goto end
 	}
+	// Skip to the next Node in .nodes
 	index++
+	// Capture that next node to return to the called which is .Build(). This has the
+	// effect of not generating any code for the node at (now) b.nodes[index-1] which
+	// was a pointer or interface who sole Node in `.nodes[0] was the same node as in
+	// (now) b.nodes[index].
 	n = b.nodes[index]
+	// TODO: What happens if we have a pointer to an interface to another type, or an
+	//       interface to a poiner to another type? Should we call recursively here?!?
 end:
 	return n, index, nt
 }
@@ -110,9 +151,22 @@ func (b *CodeBuilder) Build() string {
 	var n *Node
 	var nt NodeType
 
+	// Fill b.indexMap with reflect.Values from .nodes and their indexes into .nodes
+	// for quick lookup and nullification in .scalarChildWritten().
+	for i := 1; i < len(b.nodes); i++ {
+		n = b.nodes[i]
+		b.indexMap[n.Value] = i
+	}
+
 	nodeCnt := b.NodeCount()
 	for i := 1; i <= nodeCnt; i++ {
 		n, i, nt = b.selectNode(i)
+		// If nullified in .scalarChildWritten() because scalar already written then no
+		// need to output.
+		if n == nil {
+			continue
+		}
+		n.Index = i
 		if b.wasGenerated(n) {
 			// n is pointed at by prior, so we've already output it
 			continue
@@ -126,7 +180,7 @@ func (b *CodeBuilder) Build() string {
 		b.WriteByte('\n')
 
 		// Record that this var has been generated
-		b.genMap[n.Index] = n
+		b.genMap[n.Value] = n
 
 	}
 	for _, a := range b.assignments {
@@ -207,6 +261,40 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 	}
 }
 
+// scalarChildWritten both determines if a Node is a scalar — or its sole
+// children are scalars where children would be the child of an Interface, or
+// child (.NodeRef) or a RefNode - and if so it will write the scalar value and
+// clear any related notes from CodeBuilder.nodes to keep them from being
+// generated as their own variables. It recursively descends until it finds a
+// scalar type. NOTE: We may augment in future to handle more types if test cases
+// emerge that help us understand that we should handle them here.
+func (b *CodeBuilder) scalarChildWritten(n *Node) (written bool) {
+	if n.Type == RefNode && n.NodeRef != nil {
+		written = b.scalarChildWritten(n.NodeRef)
+		goto end
+	}
+	if n.Type == InterfaceNode && len(n.nodes) > 0 {
+		written = b.scalarChildWritten(n.nodes[0])
+		goto end
+	}
+	if isOneOf(n.Type, ScalarNodeTypes...) {
+		b.WriteCode(n)
+		written = true
+	}
+end:
+	if written {
+		index, found := b.indexMap[n.Value]
+		if found && index > b.Index {
+			// If the node just written was also found in list of .nodes and its index
+			// exceeds the indexes of the Nodes om .nodes we have already generated, nillify
+			// the Node entry in .nodes so that Node will not be generated again as a
+			// variable assignment.
+			b.nodes[index] = nil
+		}
+	}
+	return written
+}
+
 // RefNode either 1. Generates code for it's .NodeRef if no code generated yet,
 // 2. uses the embedded `strings.Builder` to generate a `nil`, and then records
 // an assignment for the node to be generated after this line is generated, o 3.
@@ -223,6 +311,9 @@ func (b *CodeBuilder) RefNode(n *Node) {
 		// recursion. This can happen when a container contains a value that contains a
 		// pointer back to the original container.
 		b.WriteCode(n.NodeRef)
+
+	case b.scalarChildWritten(n):
+		goto end
 
 	case !b.wasGenerated(n):
 		// Output has not been generated for this node which means it is being assigned
@@ -563,7 +654,7 @@ func (b *CodeBuilder) wasGenerated(node *Node) (generated bool) {
 		goto end
 	}
 
-	_, generated = b.genMap[node.Index]
+	_, generated = b.genMap[node.Value]
 	if generated {
 		goto end
 	}
