@@ -50,6 +50,11 @@ func NewNode(args *NodeArgs) (n *Node) {
 	return n
 }
 
+func (n *Node) String() string {
+	n.resetDebugString()
+	return n.debugString
+}
+
 func (n *Node) resetDebugString() {
 	n.debugString = fmt.Sprintf("%s %sNode [Index: %d]", n.Name, n.Type, n.Index)
 }
