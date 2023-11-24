@@ -145,6 +145,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		intNode(),
 		int64Node(),
 		boolNode(),
+		stringNode(),
 		float64Node(),
 		pointerToSimpleStructNode(testStruct{}),
 		emptyIntSliceNode(),

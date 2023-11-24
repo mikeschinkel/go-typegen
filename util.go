@@ -2,7 +2,6 @@ package typegen
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 )
