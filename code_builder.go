@@ -2,8 +2,11 @@ package typegen
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
 type CodeBuilder struct {
@@ -88,7 +91,7 @@ func (b *CodeBuilder) matchesPrior(n *Node, index int) (matches bool) {
 	if len(n.nodes) == 0 {
 		goto end
 	}
-	matches = isSame(
+	matches = ezreflect.Equivalent(
 		n.nodes[0].Value,
 		b.nodes[index-1].Value,
 	)
@@ -155,7 +158,7 @@ func (b *CodeBuilder) Build() string {
 	// for quick lookup and nullification in .scalarChildWritten().
 	for i := 1; i < len(b.nodes); i++ {
 		n = b.nodes[i]
-		b.indexMap[n.Value] = i
+		b.indexMap[reflect.ValueOf(n.Value)] = i
 	}
 
 	nodeCnt := b.NodeCount()
@@ -180,7 +183,7 @@ func (b *CodeBuilder) Build() string {
 		b.WriteByte('\n')
 
 		// Record that this var has been generated
-		b.genMap[n.Value] = n
+		b.genMap[reflect.ValueOf(n.Value)] = n
 
 	}
 	for _, a := range b.assignments {
@@ -201,9 +204,13 @@ func (b *CodeBuilder) Build() string {
 // generated separately. This function will add an `*Assignment` for each of
 // those properties.
 func (b *CodeBuilder) WriteCode(n *Node) {
+	var rv reflect.Value
+	var unhandled bool
+
 	n.Name = maybeStripPackage(n.Name, b.omitPkg)
 	n.Name = replaceInterfaceWithAny(n.Name)
-	n.resetDebugString()
+	n.ResetDebugString()
+
 	switch n.Type {
 	case SubstitutionNode:
 		b.SubstitutionNode(n)
@@ -229,7 +236,25 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 		b.InvalidNode(n)
 	case SliceNode:
 		b.SliceNode(n)
+	default:
+		unhandled = true
+	}
+	if !unhandled {
+		goto end
+	}
 
+	//if n.Value == nil {
+	//	b.WriteString(`nil`)
+	//	goto end
+	//}
+
+	rv = reflect.ValueOf(n.Value)
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		b.WriteString(`""`) //TODO Verify this is what is should output, vs. `nil`
+		goto end
+	}
+
+	switch n.Type {
 	case IntNode:
 		b.IntNode(n)
 	case Int8Node:
@@ -261,6 +286,7 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 	default:
 		panicf("Unhandled node type '%s'", n.Type)
 	}
+end:
 }
 
 // scalarChildWritten both determines if a Node is a scalar — or its sole
@@ -281,11 +307,12 @@ func (b *CodeBuilder) scalarChildWritten(n *Node) (written bool) {
 	}
 	if isOneOf(n.Type, ScalarNodeTypes...) {
 		b.WriteCode(n)
+		b.genMap[reflect.ValueOf(n.Value)] = n
 		written = true
 	}
 end:
 	if written {
-		index, found := b.indexMap[n.Value]
+		index, found := b.indexMap[reflect.ValueOf(n.Value)]
 		if found && index > b.Index {
 			// If the node just written was also found in list of .nodes and its index
 			// exceeds the indexes of the Nodes om .nodes we have already generated, nillify
@@ -340,91 +367,91 @@ end:
 // SubstitutionNode generates the substituted string code from a Node using the
 // embedded `strings.Builder.`
 func (b *CodeBuilder) SubstitutionNode(n *Node) {
-	b.WriteString(n.Value.String())
+	b.WriteString(n.Value.(string))
 }
 
 // Int8Node generates the int8 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Int8Node(n *Node) {
-	b.WriteString(fmt.Sprintf("int8(%d)", n.Value.Int()))
+	b.WriteString(fmt.Sprintf("int8(%d)", n.Value.(int8)))
 }
 
 // Int16Node generates the int16 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Int16Node(n *Node) {
-	b.WriteString(fmt.Sprintf("int16(%d)", n.Value.Int()))
+	b.WriteString(fmt.Sprintf("int16(%d)", n.Value.(int16)))
 }
 
 // Int32Node generates the int32 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Int32Node(n *Node) {
-	b.WriteString(fmt.Sprintf("int32(%d)", n.Value.Int()))
+	b.WriteString(fmt.Sprintf("int32(%d)", n.Value.(int32)))
 }
 
 // Int64Node generates the int64 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Int64Node(n *Node) {
-	b.WriteString(fmt.Sprintf("int64(%d)", n.Value.Int()))
+	b.WriteString(fmt.Sprintf("int64(%d)", n.Value.(int64)))
 }
 
 // Uint8Node generates the uint8 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint8Node(n *Node) {
-	b.WriteString(fmt.Sprintf("uint8(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint8(%d)", n.Value.(uint8)))
 }
 
 // Uint16Node generates the uint16 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint16Node(n *Node) {
-	b.WriteString(fmt.Sprintf("uint16(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint16(%d)", n.Value.(uint16)))
 }
 
 // Uint32Node generates the uint32 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint32Node(n *Node) {
-	b.WriteString(fmt.Sprintf("uint32(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint32(%d)", n.Value.(uint32)))
 }
 
 // Uint64Node generates the uint64 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Uint64Node(n *Node) {
-	b.WriteString(fmt.Sprintf("uint64(%d)", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("uint64(%d)", n.Value.(uint64)))
 }
 
 // Float32Node generates the float32 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Float32Node(n *Node) {
-	b.WriteString(fmt.Sprintf("float32(%f)", n.Value.Float()))
+	b.WriteString(fmt.Sprintf("float32(%f)", n.Value.(float32)))
 }
 
 // Float64Node generates the float64 code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) Float64Node(n *Node) {
-	b.WriteString(fmt.Sprintf("float64(%f)", n.Value.Float()))
+	b.WriteString(fmt.Sprintf("float64(%f)", n.Value.(float64)))
 }
 
 // StringNode generates the string code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) StringNode(n *Node) {
-	b.WriteString(strconv.Quote(n.Value.String()))
+	b.WriteString(strconv.Quote(n.Value.(string)))
 }
 
 // IntNode generates the Int code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) IntNode(n *Node) {
-	b.WriteString(fmt.Sprintf("%d", n.Value.Int()))
+	b.WriteString(fmt.Sprintf("%d", n.Value.(int)))
 }
 
 // UintNode generates the Uint code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) UintNode(n *Node) {
-	b.WriteString(fmt.Sprintf("%d", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("%d", n.Value.(uint)))
 }
 
 // BoolNode generates the bool code from a Node using the embedded
 // `strings.Builder.`
 func (b *CodeBuilder) BoolNode(n *Node) {
-	b.WriteString(fmt.Sprintf("%t", n.Value.Bool()))
+	b.WriteString(fmt.Sprintf("%t", n.Value.(bool)))
 }
 
 // FuncNode generates the func code from a Node using the embedded
@@ -437,7 +464,7 @@ func (b *CodeBuilder) FuncNode(*Node) {
 }
 
 func (b *CodeBuilder) UintptrNode(n *Node) {
-	b.WriteString(fmt.Sprintf("%d", n.Value.Uint()))
+	b.WriteString(fmt.Sprintf("%d", n.Value.(uintptr)))
 }
 
 //goland:noinspection GoUnusedParameter
@@ -557,18 +584,18 @@ func (b *CodeBuilder) varGenerated(*Node) (pointing bool) {
 	return pointing
 }
 
-// ancestorVarname looks for the varname from the Node's parent, or its parent,
-// or its parent, and so on recursively, until there is no more parents left,
+// ancestorVarname looks for the varname from the Node's Parent, or its Parent,
+// or its Parent, and so on recursively, until there is no more parents left,
 // e.g. we get to the root of the data structure.
 func (b *CodeBuilder) ancestorVarname(n *Node) (s string) {
-	if n.parent == nil {
+	if n.Parent == nil {
 		goto end
 	}
-	if n.parent.varname != "" {
-		s = n.parent.varname
+	if n.Parent.varname != "" {
+		s = n.Parent.varname
 		goto end
 	}
-	s = b.ancestorVarname(n.parent)
+	s = b.ancestorVarname(n.Parent)
 end:
 	return s
 }
@@ -602,7 +629,7 @@ end:
 // given a *Node. This will always be the var name of the parent node, e.g.
 // `var1` plus the property name of the struct to be assigned.
 func (b *CodeBuilder) fieldLHS(node *Node) (lhs string) {
-	return fmt.Sprintf("%s.%s", b.ancestorVarname(node), node.parent.Name)
+	return fmt.Sprintf("%s.%s", b.ancestorVarname(node), node.Parent.Name)
 }
 
 // lhs return the left-hand side for an slice or array element assignment as a
@@ -614,7 +641,7 @@ func (b *CodeBuilder) elementLHS(node *Node) (lhs string) {
 
 // assignOp will return assigment operator; an `=` if a field
 func (b *CodeBuilder) assignOp(node *Node) (op string) {
-	switch node.parent.Type {
+	switch node.Parent.Type {
 	case FieldNode, ElementNode:
 		op = "="
 	default:
@@ -662,7 +689,7 @@ func (b *CodeBuilder) wasGenerated(node *Node) (generated bool) {
 		goto end
 	}
 
-	_, generated = b.genMap[node.Value]
+	_, generated = b.genMap[reflect.ValueOf(node.Value)]
 	if generated {
 		goto end
 	}
@@ -676,16 +703,16 @@ func (b *CodeBuilder) returnVarAndType(n *Node, nt NodeType) (rv, rt string) {
 	switch nt {
 	case PointerNode:
 		rv += "&" + b.nodeVarname(n)
-		rt = "*" + maybeStripPackage(n.Value.Type().String(), b.omitPkg)
+		rt = "*" + maybeStripPackage(n.Typename, b.omitPkg)
 		goto end
 	case InterfaceNode:
 		fallthrough
 	default:
 		rv = b.nodeVarname(n)
 		rt = "error" // error is a built-in type that can can be nil.
-		if n.Value.IsValid() {
-			// Get the return type, and with `.omitPkg` package stripped, if applicable
-			rt = maybeStripPackage(n.Value.Type().String(), b.omitPkg)
+		if n.Typename != "nil" {
+			//Get the return type, and with `.omitPkg` package stripped, if applicable
+			rt = maybeStripPackage(n.Typename, b.omitPkg)
 			rt = replaceInterfaceWithAny(rt)
 		}
 	}
@@ -716,7 +743,7 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 	if n == nil {
 		panic("Unexpected nil Node")
 	}
-	parent = n.parent
+	parent = n.Parent
 	if parent == nil {
 		panic("Handle when node.Parent is nil")
 	}
@@ -737,12 +764,12 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 		assigned = true
 	case parent.Type == InterfaceNode:
 		// TODO: Make this more generic as we discover more test cases
-		if parent.parent == nil {
-			why = "parent.parent==nil"
+		if parent.Parent == nil {
+			why = "Parent.Parent==nil"
 			goto end
 		}
-		if parent.parent.Type != SliceNode {
-			why = "parent.parent.Type!=SliceNode"
+		if parent.Parent.Type != SliceNode {
+			why = "Parent.Parent.Type!=SliceNode"
 			goto end
 		}
 		if n.Type != RefNode {

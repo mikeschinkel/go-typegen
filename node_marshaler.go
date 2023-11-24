@@ -5,12 +5,13 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+
+	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
-type Substitutions map[reflect.Type]func(reflect.Value) string
+type Substitutions map[reflect.Type]func(*reflect.Value) string
 
 type NodeMarshaler struct {
-	value         reflect.Value
 	original      any
 	nodeMap       NodeMap
 	nodes         Nodes
@@ -52,12 +53,12 @@ func (m *NodeMarshaler) Marshal(value any) Nodes {
 	}
 
 	m.original = value
-	m.root = m.marshalValue(rv, nil)
+	m.root = m.marshalValue(&rv, nil)
 
 	if m.NodeCount() == 0 {
 		// If the root value is not a container, and thus not yet registered, registerNode
 		// the one value, so it can be converted in .String().
-		m.registerNode(rv, m.root)
+		m.registerNode(&rv, m.root)
 	}
 
 	// Ensure the root node is not duplicated if referenced elsewhere by making sure
@@ -71,16 +72,18 @@ func (m *NodeMarshaler) NodeCount() int {
 	return len(m.nodeMap)
 }
 
-func (m *NodeMarshaler) marshalValue(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalValue(rv *reflect.Value, parent *Node) (node *Node) {
+	var name string
 	if rv.IsValid() {
 		subsFunc, ok := m.substitutions[rv.Type()]
 		if ok {
+			reflector := reflect.ValueOf(subsFunc(rv))
 			node = NewNode(&NodeArgs{
-				Name:      "substitution",
-				marshaler: m,
-				Type:      SubstitutionNode,
-				Value:     reflect.ValueOf(subsFunc(rv)),
-				Parent:    parent,
+				Name:         "substitution",
+				marshaler:    m,
+				Type:         SubstitutionNode,
+				ReflectValue: &reflector,
+				Parent:       parent,
 			})
 			goto end
 		}
@@ -89,21 +92,29 @@ func (m *NodeMarshaler) marshalValue(rv reflect.Value, parent *Node) (node *Node
 	if node != nil {
 		goto end
 	}
+	name = "nil"
+	if rv.IsValid() {
+		name = fmt.Sprintf("%s(%s)",
+			rv.Type().String(),
+			ezreflect.NewReflectWrapper(*rv).String(),
+		)
+	}
+	// Scalar
 	node = NewNode(&NodeArgs{
-		Name:      "scalar",
-		marshaler: m,
-		Value:     rv,
-		Parent:    parent,
+		Name:         name,
+		marshaler:    m,
+		ReflectValue: rv,
+		Parent:       parent,
 	})
 end:
 	return node
 }
 
-func (m *NodeMarshaler) marshalContainers(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalContainers(rv *reflect.Value, parent *Node) (node *Node) {
 
 	switch rv.Kind() {
 	case reflect.Ptr:
-		node = m.marshalPtr(rv, parent)
+		node = m.marshalPointer(rv, parent)
 	case reflect.Struct:
 		node = m.marshalStruct(rv, parent)
 	case reflect.Slice:
@@ -122,56 +133,59 @@ end:
 }
 
 // marshalArray marshals an array value to create a Node
-func (m *NodeMarshaler) marshalArray(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalArray(rv *reflect.Value, parent *Node) (node *Node) {
 	return m.marshalElements(rv, parent, func() string {
 		return fmt.Sprintf("[%d]%s", rv.Len(), rv.Type().Elem())
 	})
 }
 
 // marshalSlice marshals a slice value to create a Node
-func (m *NodeMarshaler) marshalSlice(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalSlice(rv *reflect.Value, parent *Node) (node *Node) {
 	return m.marshalElements(rv, parent, func() string {
 		return fmt.Sprintf("[]%s", rv.Type().Elem())
 	})
 }
 
 // marshalElements marshals both array and slice values to create Nodes
-func (m *NodeMarshaler) marshalElements(rv reflect.Value, parent *Node, nameFunc func() string) (node *Node) {
+func (m *NodeMarshaler) marshalElements(rv *reflect.Value, parent *Node, nameFunc func() string) (node *Node) {
+	var index reflect.Value
 
 	node, found := m.isRegistered(rv)
 	if found {
 		goto end
 	}
 	node = NewNode(&NodeArgs{
-		Name:      nameFunc(),
-		marshaler: m,
-		Value:     rv,
-		Parent:    parent,
+		Name:         nameFunc(),
+		marshaler:    m,
+		ReflectValue: rv,
+		Parent:       parent,
 	})
 	m.registerNode(rv, node)
 
 	node.SetNodeCount(rv.Len())
 	for i := 0; i < rv.Len(); i++ {
+		reflector := reflect.ValueOf(i)
 		child := NewNode(&NodeArgs{
-			Name:      fmt.Sprintf("Index %d", i),
-			Type:      ElementNode,
-			marshaler: m,
-			Value:     reflect.ValueOf(i),
-			Index:     i,
+			Name:         fmt.Sprintf("Index %d", i),
+			Type:         ElementNode,
+			marshaler:    m,
+			ReflectValue: &reflector,
+			Index:        i,
 		})
 		node.AddNode(child)
-		childValue := m.marshalValue(rv.Index(i), node)
-		childValue.Index = i
+		index = rv.Index(i)
+		childValue := m.marshalValue(&index, node)
 		childValue.Name = fmt.Sprintf("Value %d", i)
-		childValue.resetDebugString()
+		childValue.ResetDebugString()
 		child.AddNode(childValue)
 	}
 end:
 	return m.newRefNode(node)
 }
 
-func (m *NodeMarshaler) marshalMap(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalMap(rv *reflect.Value, parent *Node) (node *Node) {
 	var name string
+	var index reflect.Value
 
 	var keys []reflect.Value
 
@@ -181,102 +195,116 @@ func (m *NodeMarshaler) marshalMap(rv reflect.Value, parent *Node) (node *Node) 
 	}
 	name = fmt.Sprintf("map[%s]%s", rv.Type().Key(), rv.Type().Elem())
 	node = NewNode(&NodeArgs{
-		Name:      name,
-		marshaler: m,
-		Value:     rv,
-		Parent:    parent,
+		Name:         name,
+		marshaler:    m,
+		ReflectValue: rv,
+		Parent:       parent,
 	})
 	m.registerNode(rv, node)
 	keys = m.sortedKeys(rv)
 	node.SetNodeCount(len(keys))
 	for _, key := range keys {
-		child := m.marshalValue(key, node)
+		child := m.marshalValue(&key, node)
 		node.AddNode(child)
-		child.AddNode(m.marshalValue(rv.MapIndex(key), child))
+		index = rv.MapIndex(key)
+		child.AddNode(m.marshalValue(&index, child))
 	}
 end:
 	return m.newRefNode(node)
 }
 
-func (m *NodeMarshaler) marshalPtr(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalPointer(rv *reflect.Value, parent *Node) (node *Node) {
+	var name string
+	var elem reflect.Value
 
 	node, found := m.isRegistered(rv)
 	if found {
 		goto end
 	}
+	name = rv.Type().String()
 	if rv.IsNil() {
 		node = NewNode(&NodeArgs{
-			Name:      "nil",
-			marshaler: m,
-			Value:     rv,
-			Parent:    parent,
+			Name:         name + " (nil)",
+			marshaler:    m,
+			ReflectValue: rv,
+			Parent:       parent,
 		})
 		goto end
 	}
 	node = NewNode(&NodeArgs{
-		Name:      "&",
-		marshaler: m,
-		Value:     rv,
-		Parent:    parent,
+		Name:         name,
+		marshaler:    m,
+		ReflectValue: rv,
+		Parent:       parent,
 	})
 	m.registerNode(rv, node)
-	node.AddNode(m.marshalValue(rv.Elem(), node))
+	elem = rv.Elem()
+	node.AddNode(m.marshalValue(&elem, node))
 end:
 	return m.newRefNode(node)
 }
 
-func (m *NodeMarshaler) marshalInterface(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) marshalInterface(rv *reflect.Value, parent *Node) (node *Node) {
+	var name string
+	var elem reflect.Value
 
 	node, found := m.isRegistered(rv)
 	if found {
 		goto end
 	}
+	name = m.asString(rv)
 	if rv.IsNil() {
 		node = NewNode(&NodeArgs{
-			Name:      "nil",
-			marshaler: m,
-			Value:     rv,
-			Parent:    parent,
+			Name:         name + " (nil)",
+			marshaler:    m,
+			ReflectValue: rv,
+			Parent:       parent,
 		})
 		goto end
 	}
 	node = NewNode(&NodeArgs{
-		Name:      rv.Type().String(),
-		marshaler: m,
-		Value:     rv,
-		Parent:    parent,
+		Name:         name,
+		marshaler:    m,
+		ReflectValue: rv,
+		Parent:       parent,
 	})
 	m.registerNode(rv, node)
-	node.AddNode(m.marshalValue(rv.Elem(), node))
+	elem = rv.Elem()
+	node.AddNode(m.marshalValue(&elem, node))
 end:
 	return m.newRefNode(node)
 }
 
-func (m *NodeMarshaler) marshalStruct(rv reflect.Value, parent *Node) (node *Node) {
+func (m *NodeMarshaler) asString(rv *reflect.Value) (s string) {
+	return ezreflect.AsString(*rv)
+}
+
+func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *Node) {
+	var rt reflect.Type
 
 	node, found := m.isRegistered(rv)
 	if found {
 		goto end
 	}
 	node = NewNode(&NodeArgs{
-		Name:      rv.Type().String(),
-		marshaler: m,
-		Value:     rv,
-		Parent:    parent,
+		Name:         rv.Type().String(),
+		marshaler:    m,
+		ReflectValue: rv,
+		Parent:       parent,
 	})
 	m.registerNode(rv, node)
+	rt = rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
-		name := rv.Type().Field(i).Name
 		child := NewNode(&NodeArgs{
-			Name:      name,
+			Name:      rt.Field(i).Name,
 			Type:      FieldNode,
 			marshaler: m,
-			Value:     reflect.ValueOf(name),
 			Index:     i,
-			Parent:    node,
+			Typename:  "field", // TODO Decide something better, maybe?
 		})
 		node.AddNode(child)
-		child.AddNode(m.marshalValue(rv.Field(i), child))
+		crv := rv.Field(i)
+		child.AddNode(m.marshalValue(&crv, child))
 	}
 end:
 	return m.newRefNode(node)
@@ -286,13 +314,13 @@ end:
 // Used by isRegistered() to determine if a node exists or needs to be added.
 // Called when marshalling collection types; array, slice, map, pointer,
 // interface, and struct.
-func (m *NodeMarshaler) registerNode(rv reflect.Value, n *Node) {
+func (m *NodeMarshaler) registerNode(rv *reflect.Value, n *Node) {
 	_, found := m.isRegistered(rv)
 	if found {
 		goto end
 	}
-	m.nodeMap[rv] = n
-	n.Index = len(m.nodeMap)
+	m.nodeMap[*rv] = n
+	n.ResetDebugString()
 	if rv.Kind() == reflect.Pointer {
 		m.ptrMap[rv.Pointer()] = n
 	}
@@ -302,7 +330,7 @@ end:
 }
 
 // isRegistered returns a Node if found to be registered, and a bool true if found.
-func (m *NodeMarshaler) isRegistered(rv reflect.Value) (node *Node, found bool) {
+func (m *NodeMarshaler) isRegistered(rv *reflect.Value) (node *Node, found bool) {
 
 	if rv.Kind() != reflect.Pointer {
 		node, found = m.findNodeMapKey(rv)
@@ -330,7 +358,7 @@ end:
 // findNodeMapKey loops through nodeBuilder.nodeMap[reflect.Value]*Node and to
 // find the value that matches. For pointer values it dereferences to do the
 // match.
-func (m *NodeMarshaler) findNodeMapKey(rv reflect.Value) (node *Node, found bool) {
+func (m *NodeMarshaler) findNodeMapKey(rv *reflect.Value) (node *Node, found bool) {
 	var n *Node
 	var k reflect.Value
 
@@ -339,7 +367,7 @@ func (m *NodeMarshaler) findNodeMapKey(rv reflect.Value) (node *Node, found bool
 		if rv.Kind() == reflect.Pointer {
 			continue
 		}
-		if !isSame(k, rv) {
+		if !ezreflect.Equivalent(k, rv) {
 			continue
 		}
 		if len(n.nodes) == 0 {
@@ -354,7 +382,7 @@ func (m *NodeMarshaler) findNodeMapKey(rv reflect.Value) (node *Node, found bool
 		if rv.Kind() != reflect.Pointer {
 			continue
 		}
-		if !isSame(k, rv.Elem()) {
+		if !ezreflect.Equivalent(k, rv.Elem()) {
 			continue
 		}
 		if len(n.nodes) == 0 {
@@ -371,7 +399,7 @@ end:
 	return node, found
 }
 
-func (m *NodeMarshaler) sortedKeys(rv reflect.Value) (keys []reflect.Value) {
+func (m *NodeMarshaler) sortedKeys(rv *reflect.Value) (keys []reflect.Value) {
 	keyValues := rv.MapKeys()
 	keys = make([]reflect.Value, len(keyValues))
 	for i, k := range keyValues {
@@ -385,11 +413,12 @@ func (m *NodeMarshaler) sortedKeys(rv reflect.Value) (keys []reflect.Value) {
 
 func (m *NodeMarshaler) newRefNode(node *Node) (n *Node) {
 	return NewNode(&NodeArgs{
-		Name:      fmt.Sprintf("ref%d", node.Index),
+		Name:      fmt.Sprintf("ref:%s", node.Name),
 		NodeRef:   node,
 		Type:      RefNode,
 		marshaler: m,
 		Index:     node.Index,
+		Typename:  "ref",
 	})
 }
 
@@ -406,7 +435,7 @@ func (m *NodeMarshaler) maybeReuniteNodes() {
 
 	for pi, p := range pointers {
 		for npi, np := range nonPointers {
-			if np.parent != nil {
+			if np.Parent != nil {
 				continue
 			}
 			el := pi.Elem()
@@ -419,7 +448,7 @@ func (m *NodeMarshaler) maybeReuniteNodes() {
 			if !reflect.DeepEqual(el, npi) {
 				continue
 			}
-			np.parent = p
+			np.Parent = p
 		}
 	}
 }

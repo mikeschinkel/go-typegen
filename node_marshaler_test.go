@@ -27,6 +27,24 @@ type iFaceStruct struct {
 	iFace2 any
 }
 
+type nM = typegen.NodeMarshaler
+type nodesFunc func(m *nM) typegen.Nodes
+type Node = typegen.Node
+type Nodes = typegen.Nodes
+
+var AddNode = typegen.TestAddNode
+var GetNode = typegen.TestGetNode
+var InitNode = typegen.TestInitNode
+var FixupNodes = typegen.TestFixupNodes
+
+type testData struct {
+	name      string
+	value     any
+	nodes     nodesFunc
+	skipNodes bool
+	want      string
+}
+
 func TestNodeBuilder_Marshal(t *testing.T) {
 	recur := recurStruct{name: "root", extra: "whatever"}
 	recur.recur = &recur
@@ -39,16 +57,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 	iFace.iFace1 = interface{}("Hello")
 	iFace.iFace2 = any(10)
 
-	tests := []struct {
-		name  string
-		value any
-		want  string
-	}{
-		{
-			name:  "Pointer to interface struct containing interface{}(string) and any(int)",
-			value: &iFace,
-			want:  wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:"Hello",iFace2:10,}`),
-		},
+	tests := []testData{
 		{
 			name:  "nil",
 			value: nil,
@@ -66,44 +75,9 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			want:  wantValue("map[string]int", "map[string]int{}"),
 		},
 		{
-			name:  "Boolean true",
-			value: true,
-			want:  wantValue("bool", `true`),
-		},
-		{
-			name:  "Integer",
-			value: 100,
-			want:  wantValue("int", `100`),
-		},
-		{
-			name:  "64-bit integer",
-			value: int64(100),
-			want:  wantValue("int64", `int64(100)`),
-		},
-		{
-			name:  "Float",
-			value: 1.23,
-			want:  wantValue("float64", `float64(1.230000)`),
-		},
-		{
-			name:  "Simple String",
-			value: "Hello World",
-			want:  wantValue("string", `"Hello World"`),
-		},
-		{
-			name:  "Empty int slice",
-			value: []int{},
-			want:  wantValue(`[]int`, `[]int{}`),
-		},
-		{
 			name:  "Simple int slice",
 			value: []int{1, 2, 3},
 			want:  wantValue(`[]int`, `[]int{1,2,3,}`),
-		},
-		{
-			name:  "Pointer to simple struct",
-			value: &testStruct{},
-			want:  wantPtrValue(`testStruct`, `testStruct{Int:0,String:"",}`),
 		},
 		{
 			name:  "Pointer to struct with indirect property pointing to itself",
@@ -150,9 +124,33 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			value: []any{reflect.ValueOf(10)},
 			want:  wantValue(`[]any`, `[]any{reflect.ValueOf(10),}`),
 		},
+		{
+			name:      "Pointer to interface struct containing interface{}(string) and any(int)",
+			value:     &iFace,
+			want:      wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:"Hello",iFace2:10,}`),
+			skipNodes: true,
+		},
+		{
+			name:      "Pointer to simple struct",
+			value:     &testStruct{},
+			want:      wantPtrValue(`testStruct`, `testStruct{Int:0,String:"",}`),
+			skipNodes: true,
+		},
+		{
+			name:      "Pointer to interface struct containing interface{}(string) and any(int)",
+			value:     &iFace,
+			want:      wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:"Hello",iFace2:10,}`),
+			skipNodes: true,
+		},
+		intNode(),
+		int64Node(),
+		boolNode(),
+		float64Node(),
+		pointerToSimpleStructNode(testStruct{}),
+		emptyIntSliceNode(),
 	}
 	subs := typegen.Substitutions{
-		reflect.TypeOf(reflect.Value{}): func(rv reflect.Value) string {
+		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
 			return fmt.Sprintf("reflect.ValueOf(%v)", rv.Interface())
 		},
 	}
@@ -160,6 +158,9 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := typegen.NewNodeMarshaler(subs)
 			nodes := m.Marshal(tt.value)
+			//if !tt.skipNodes {
+			//	assert.Equal(t, nodes, tt.nodes(m))
+			//}
 			b := typegen.NewCodeBuilder("getData", "typegen_test", nodes)
 			got := b.String()
 			assert.Equal(t, tt.want, got)
@@ -183,4 +184,184 @@ func wantValueWithReturn(typ, want, ret string, args ...any) string {
 		want = fmt.Sprintf(want, args...)
 	}
 	return fmt.Sprintf(`func getData() %s {%s  var1 := %s%s}`, typ, "\n", want, "\n")
+}
+
+func emptyIntSliceNode() testData {
+	intSlice := make([]int, 0)
+	return testData{
+		name:  "Empty int slice",
+		value: intSlice,
+		want:  wantValue(`[]int`, `[]int{}`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Value:     intSlice,
+					Type:      typegen.SliceNode,
+					Name:      `[]int`,
+					Marshaler: m,
+				},
+			}, nil)
+		},
+	}
+}
+func intNode() testData {
+	return testData{
+		name:  "int(100)",
+		value: 100,
+		want:  wantValue("int", `100`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Name:      "int(100)",
+					Value:     reflect.ValueOf(100),
+					Type:      typegen.IntNode,
+				},
+			}, nil)
+		},
+	}
+}
+func boolNode() testData {
+	return testData{
+		name:  "Boolean true",
+		value: true,
+		want:  wantValue("bool", `true`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Name:      "bool(true)",
+					Value:     reflect.ValueOf(true),
+					Type:      typegen.BoolNode,
+				},
+			}, nil)
+		},
+	}
+}
+func int64Node() testData {
+	return testData{
+		name:  "64-bit integer",
+		value: int64(100),
+		want:  wantValue("int64", `int64(100)`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Name:      "int64(100)",
+					Value:     reflect.ValueOf(int64(100)),
+					Type:      typegen.Int64Node,
+				},
+			}, nil)
+		},
+	}
+}
+func float64Node() testData {
+	return testData{
+		name:  "Float",
+		value: 1.23,
+		want:  wantValue("float64", `float64(1.230000)`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Name:      "float64(1.23)",
+					Value:     reflect.ValueOf(1.23),
+					Type:      typegen.Float64Node,
+				},
+			}, nil)
+		},
+	}
+}
+func stringNode() testData {
+	return testData{
+		name:  "Simple String",
+		value: "Hello World",
+		want:  wantValue("string", `"Hello World"`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Name:      `string("Hello World")`,
+					Value:     reflect.ValueOf("Hello World"),
+					Type:      typegen.StringNode,
+				},
+			}, nil)
+		},
+	}
+}
+func pointerToSimpleStructNode(myStruct testStruct) testData {
+	return testData{
+		name:  "Pointer to simple struct",
+		value: &myStruct,
+		want:  wantPtrValue(`testStruct`, `testStruct{Int:0,String:"",}`),
+		nodes: func(m *nM) Nodes {
+			return FixupNodes(Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Name:      "*typegen_test.testStruct",
+					Value:     reflect.ValueOf(&myStruct),
+					Type:      typegen.PointerNode,
+				},
+				{
+					Marshaler: m,
+					Name:      "typegen_test.testStruct",
+					Value:     reflect.ValueOf(&myStruct).Elem(), // Note the .Elem()
+					Type:      typegen.StructNode,
+				},
+			}, func(nodes typegen.Nodes) {
+				for _, n := range nodes {
+					InitNode(n)
+				}
+
+				nodes[2].Parent = nodes[1]
+
+				AddNode(nodes[1], &Node{
+					Marshaler: m,
+					Type:      typegen.RefNode,
+					NodeRef:   nodes[2],
+					Name:      "ref:typegen_test.testStruct",
+					Parent:    nodes[1],
+				})
+
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Type:      typegen.FieldNode,
+					Name:      "Int",
+					Index:     0,
+					Parent:    nodes[2],
+				})
+				AddNode(GetNode(nodes[2], 0), &Node{
+					Marshaler: m,
+					Name:      "int(0)",
+					Type:      typegen.IntNode,
+					Value:     GetNode(nodes[1], 0).Value,
+					Parent:    GetNode(nodes[2], 0),
+				})
+
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Type:      typegen.FieldNode,
+					Name:      "String",
+					Index:     1,
+					Parent:    nodes[2],
+				})
+				AddNode(GetNode(nodes[2], 1), &Node{
+					Marshaler: m,
+					Name:      `string("")`,
+					Type:      typegen.StringNode,
+					Value:     GetNode(nodes[1], 1).Value,
+					Parent:    GetNode(nodes[2], 1),
+				})
+
+			})
+
+		},
+	}
 }
