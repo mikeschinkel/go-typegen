@@ -59,12 +59,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 
 	tests := []testData{
 		{
-			name:      "nil",
-			value:     nil,
-			want:      wantValue(`error`, `nil`),
-			skipNodes: true,
-		},
-		{
 			name:  "Simple string/int map",
 			value: map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
 			// Keys will be sorted alphabetically on output
@@ -162,6 +156,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		float64Node(),
 		pointerToSimpleStructNode(testStruct{}),
 		emptyIntSliceNode(),
+		nilNode(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
@@ -368,6 +363,24 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 
 			})
 
+		},
+	}
+}
+func nilNode() testData {
+	return testData{
+		name:  "nil",
+		value: nil,
+		want:  wantValue(`error`, `nil`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Value:     nil,
+					Type:      typegen.InvalidNode,
+					Name:      `nil`,
+					Marshaler: m,
+				},
+			}, nil)
 		},
 	}
 }
