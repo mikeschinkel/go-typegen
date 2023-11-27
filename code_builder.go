@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	. "github.com/mikeschinkel/go-lib"
 	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
@@ -38,10 +39,11 @@ type CodeBuilder struct {
 	indexMap IndexMap
 
 	// assignments is a slice of the assignments that need to be generated after for
-	// each node from `NodeMarshaler.nodeMap` is generated that needs to be generated.
-	// These are registered in `CodeBuilder.registerAssignment()` from within
-	// `CodeBuilder.RefNode()`, and then they are generated in `NodeMarshaler.Build()`
-	// which calls `CodeBuilder.writeAssigment()`.
+	// each node from `NodeMarshaler.nodeMap` is generated that needs to be
+	// generated. These are registered in `CodeBuilder.registerAssignment()` from
+	// within `CodeBuilder.refNode()` which is called from `CodeBuilder.<Item>Node()`
+	// where `<Item>` are Go containers, and then they are generated in
+	// `NodeMarshaler.Build()` which calls `CodeBuilder.writeAssigment()`.
 	assignments Assignments
 
 	// varnameCtr keeps track of the next variable name suffix, e.g. `var`, `var2`,
@@ -50,16 +52,17 @@ type CodeBuilder struct {
 
 	// prefixLen is set in `NodeMarshaler.Build()` to specify have make bytes it has
 	// written to the embedded `strings.Builder` of this `CodeBuilder` so that
-	// `CodeBuilder.RefNode()` can tell if the CodeBuilder has written any data or not.
+	// `CodeBuilder.refNode()` can tell if the CodeBuilder has written any data or not.
 	// If it has not then it should call `CodeBuilder.WriteCode()` on the current node
 	// since it will be the first node, otherwise it would output `nil` for use in a
 	// container property, are as a variable to be references if the code was already
 	// generated.
 	prefixLen int
 
-	nodes    Nodes
-	funcName string
-	Index    int
+	nodes     Nodes
+	funcName  string
+	Index     int
+	nodeStack Stack[int]
 }
 
 // NewCodeBuilder instantiates a new *CodeBuilder object with one param; the package
@@ -72,6 +75,7 @@ func NewCodeBuilder(funcName, omitPkg string, nodes Nodes) *CodeBuilder {
 		omitPkg:     omitPkg,
 		funcName:    funcName,
 		nodes:       nodes,
+		nodeStack:   Stack[int]{},
 		genMap:      make(GenMap),
 		indexMap:    make(IndexMap),
 		assignments: make(Assignments, 0),
@@ -110,7 +114,7 @@ func (b *CodeBuilder) selectNode(index int) (n *Node, _ int, nt NodeType) {
 		// b.scalarChildWritten() nils scalar nodes it does not need to output
 		goto end
 	}
-	if !isOneOf(n.Type, InterfaceNode, PointerNode) {
+	if !OneOf(n.Type, InterfaceNode, PointerNode) {
 		// Anything besides a Pointer or Interface does not need to be skipped, unless it
 		// was nilled in `scalarChildWritten(), and we handled that already just before
 		// this if statement.
@@ -209,23 +213,23 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 
 	n.Name = maybeStripPackage(n.Name, b.omitPkg)
 	n.Name = replaceInterfaceWithAny(n.Name)
-	n.ResetDebugString()
+	resetDebugString(n)
 
 	switch n.Type {
 	case SubstitutionNode:
 		b.SubstitutionNode(n)
-	case RefNode:
-		b.RefNode(n)
-	case StructNode:
-		b.StructNode(n)
 	case PointerNode:
 		b.PointerNode(n)
-	case MapNode:
-		b.MapNode(n)
-	case ArrayNode:
-		b.ArrayNode(n)
 	case InterfaceNode:
 		b.InterfaceNode(n)
+	case MapNode:
+		b.MapNode(n)
+	case SliceNode:
+		b.SliceNode(n)
+	case StructNode:
+		b.StructNode(n)
+	case ArrayNode:
+		b.ArrayNode(n)
 	case StringNode:
 		b.StringNode(n)
 	case BoolNode:
@@ -234,8 +238,6 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 		b.FuncNode(n)
 	case InvalidNode:
 		b.InvalidNode(n)
-	case SliceNode:
-		b.SliceNode(n)
 	default:
 		unhandled = true
 	}
@@ -284,28 +286,24 @@ func (b *CodeBuilder) WriteCode(n *Node) {
 	case UnsafePointerNode:
 		b.UnsafePointerNode(n)
 	default:
-		panicf("Unhandled node type '%s'", n.Type)
+		Panicf("Unhandled node type '%s'", n.Type)
 	}
 end:
 }
 
 // scalarChildWritten both determines if a Node is a scalar — or its sole
-// children are scalars where children would be the child of an Interface, or
-// child (.NodeRef) or a RefNode - and if so it will write the scalar value and
-// clear any related notes from CodeBuilder.nodes to keep them from being
-// generated as their own variables. It recursively descends until it finds a
-// scalar type. NOTE: We may augment in future to handle more types if test cases
-// emerge that help us understand that we should handle them here.
+// children are scalars where children would be the child of an Interface - and
+// if so it will write the scalar value and clear any related notes from
+// CodeBuilder.nodes to keep them from being generated as their own variables. It
+// recursively descends until it finds a scalar type. NOTE: We may augment in
+// future to handle more types if test cases emerge that help us understand that
+// we should handle them here.
 func (b *CodeBuilder) scalarChildWritten(n *Node) (written bool) {
-	if n.Type == RefNode && n.NodeRef != nil {
-		written = b.scalarChildWritten(n.NodeRef)
-		goto end
-	}
 	if n.Type == InterfaceNode && len(n.nodes) > 0 {
 		written = b.scalarChildWritten(n.nodes[0])
 		goto end
 	}
-	if isOneOf(n.Type, ScalarNodeTypes...) {
+	if OneOf(n.Type, ScalarNodeTypes...) {
 		b.WriteCode(n)
 		b.genMap[reflect.ValueOf(n.Value)] = n
 		written = true
@@ -324,14 +322,11 @@ end:
 	return written
 }
 
-// RefNode either 1. Generates code for it's .NodeRef if no code generated yet,
-// 2. uses the embedded `strings.Builder` to generate a `nil`, and then records
-// an assignment for the node to be generated after this line is generated, o 3.
-// uses the embedded `strings.Builder` to generate a varname with potential
-// address of operator. RefNodes were designed to allow complex object graphs to
-// be generated one container at a time by replacing expression code with a `nil`
-// and then delegating the expression to a later variable assignment.
-func (b *CodeBuilder) RefNode(n *Node) {
+func (b *CodeBuilder) refNode(n *Node) (handled bool) {
+	if b.nodeStack.Has(n.Id) {
+		goto end
+	}
+	b.nodeStack.Push(n.Id)
 	switch {
 	case b.Builder.Len() == b.prefixLen:
 		// Output has not been generated for any node so this is the first node and the
@@ -339,10 +334,12 @@ func (b *CodeBuilder) RefNode(n *Node) {
 		// this path should only be taken once because if not we'll be in an infinite
 		// recursion. This can happen when a container contains a value that contains a
 		// pointer back to the original container.
-		b.WriteCode(n.NodeRef)
+		// TODO: Make this more robust
+		b.WriteCode(n)
+		handled = true
 
 	case b.scalarChildWritten(n):
-		goto end
+		handled = true
 
 	case !b.wasGenerated(n):
 		// Output has not been generated for this node which means it is being assigned
@@ -352,16 +349,15 @@ func (b *CodeBuilder) RefNode(n *Node) {
 		// assignment of a pointer to the variable containing the value later.
 		b.WriteString("nil")
 		b.registerAssignment(n)
-		goto end
+		handled = true
 
 	default:
-		if n.NodeRef.Type == PointerNode {
-			b.WriteByte('&')
-		}
-		b.WriteString(b.nodeVarname(n))
+		handled = false
 
 	}
+	b.nodeStack.Drop()
 end:
+	return handled
 }
 
 // SubstitutionNode generates the substituted string code from a Node using the
@@ -482,33 +478,26 @@ func (b *CodeBuilder) UnsafePointerNode(*Node) {
 // when the use-case of this project is considered.
 func (b *CodeBuilder) InterfaceNode(n *Node) {
 
-	// TODO: Find a better solution than this hack which is designed to get RedNode()
-	// 			 to run WriteCode() for a special case. Figure out the patter really
-	// 			 needed and then implement that.
-	save := b.Builder
-	b.Builder = strings.Builder{}
-	b.WriteCode(n.nodes[0])
-	iFace := b.Builder.String()
-	b.Builder = save
+	if b.refNode(n) {
+		goto end
+	}
 
+	// TODO: Verify that using any is sufficient, or if we need to be use named interfaces too?
 	b.WriteString("any(")
-	b.WriteString(iFace)
+	b.WriteCode(n.nodes[0])
 	b.WriteByte(')')
+
+end:
 }
 
-// PointerNode generates the pointer code from a Node using the embedded
-// `strings.Builder` ASSUMING it ever gets called.
-//
-//goland:noinspection GoUnusedParameter
-func (b *CodeBuilder) PointerNode(*Node) {
-	//if b.varGenerated(n.nodes[0]) {
-	//	// If var is already generated then b.RefNode() will output a variable name which
-	//	// we'll need to get the address of with `&. But if not, it will output a `nil`
-	//	// which we can't use `&` in front of.
-	//	b.WriteByte('&')
-	//}
-	//b.WriteCode(n.nodes[0])
-	panic("Verify this gets called")
+// PointerNode generates the pointer code for a Pointer Node
+func (b *CodeBuilder) PointerNode(n *Node) {
+	if b.refNode(n) {
+		goto end
+	}
+	b.WriteByte('&')
+	b.WriteString(b.nodeVarname(n))
+end:
 }
 
 // StructNode generates the struct code from a Node using the embedded
@@ -527,6 +516,10 @@ func (b *CodeBuilder) StructNode(n *Node) {
 
 // MapNode generates the map code from a Node using the embedded `strings.Builder.`
 func (b *CodeBuilder) MapNode(n *Node) {
+	if b.refNode(n) {
+		goto end
+	}
+
 	b.WriteString(n.Name)
 	b.WriteByte('{')
 	for _, node := range n.nodes {
@@ -536,6 +529,8 @@ func (b *CodeBuilder) MapNode(n *Node) {
 		b.WriteByte(',')
 	}
 	b.WriteByte('}')
+
+end:
 }
 
 // ArrayNode generates the array code from a Node using the embedded `strings.Builder.`
@@ -545,7 +540,11 @@ func (b *CodeBuilder) ArrayNode(n *Node) {
 
 // SliceNode generates the slice code from a Node using the embedded `strings.Builder.`
 func (b *CodeBuilder) SliceNode(n *Node) {
+	if b.refNode(n) {
+		goto end
+	}
 	b.nodeElements(n)
+end:
 }
 
 // nodeElements generates the element's code for both arrays and slices using the
@@ -568,20 +567,6 @@ func (b *CodeBuilder) nodeElements(n *Node) {
 //goland:noinspection GoUnusedParameter
 func (b *CodeBuilder) InvalidNode(*Node) {
 	b.WriteString("nil")
-}
-
-// varGenerated will return true if that variable for n.Index has already been
-// generated and thus can be referenced by name.
-//
-//goland:noinspection GoUnusedParameter
-func (b *CodeBuilder) varGenerated(*Node) (pointing bool) {
-	panic("Verify this is ever called")
-	//	if n.Type != RefNode {
-	//		goto end
-	//	}
-	//	pointing = b.wasGenerated(n)
-	//end:
-	return pointing
 }
 
 // ancestorVarname looks for the varname from the Node's Parent, or its Parent,
@@ -611,12 +596,8 @@ func (b *CodeBuilder) nodeVarname(n *Node) string {
 	if n.varname != "" {
 		goto end
 	}
-	if isOneOf(n.Type, PointerNode, InterfaceNode) {
+	if OneOf(n.Type, PointerNode, InterfaceNode) {
 		n.SetVarname(b.nodeVarname(n.nodes[0]))
-		goto end
-	}
-	if n.NodeRef != nil {
-		n.SetVarname(b.nodeVarname(n.NodeRef))
 		goto end
 	}
 	b.varnameCtr++
@@ -664,17 +645,13 @@ func (b *CodeBuilder) rhs(node *Node) (rhs string) {
 // omitAddressOf returns true if we should omit the address of operator (&) for
 // the right-hand side.
 func (b *CodeBuilder) omitAddressOf(node *Node) (omit bool) {
-
-	if node.NodeRef == nil {
+	if len(node.nodes) == 0 {
 		goto end
 	}
-	if len(node.NodeRef.nodes) == 0 {
+	if node.Type == PointerNode {
 		goto end
 	}
-	if node.NodeRef.Type == PointerNode {
-		goto end
-	}
-	if node.NodeRef.nodes[0].Type == PointerNode {
+	if node.nodes[0].Type == PointerNode {
 		goto end
 	}
 	omit = true
@@ -772,19 +749,10 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 			why = "Parent.Parent.Type!=SliceNode"
 			goto end
 		}
-		if n.Type != RefNode {
-			why = "n.Type!=RefNode"
+		if n.Type != StructNode {
+			why = "n.Type!=StructNode"
 			goto end
 		}
-		if n.NodeRef == nil {
-			why = "n.NodeRef==nil"
-			goto end
-		}
-		if n.NodeRef.Type != StructNode {
-			why = "n.NodeRef.Type!=StructNode"
-			goto end
-		}
-		n = n.NodeRef
 		b.assignments = append(b.assignments, &Assignment{
 			LHS: fmt.Sprintf("%s[%d]", b.ancestorVarname(n), n.Index),
 			Op:  b.assignOp(n),
@@ -796,6 +764,6 @@ func (b *CodeBuilder) registerAssignment(n *Node) {
 	}
 end:
 	if !assigned {
-		panicf("Node type '%s' not assigned: %s", parent.Type, why)
+		Panicf("Node type '%s' not assigned: %s", parent.Type, why)
 	}
 }

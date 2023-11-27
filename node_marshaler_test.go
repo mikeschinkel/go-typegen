@@ -336,14 +336,6 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 
 				nodes[2].Parent = nodes[1]
 
-				AddNode(nodes[1], &Node{
-					Marshaler: m,
-					Type:      typegen.RefNode,
-					NodeRef:   nodes[2],
-					Name:      "ref:typegen_test.testStruct",
-					Parent:    nodes[1],
-				})
-
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
 					Type:      typegen.FieldNode,

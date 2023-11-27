@@ -11,9 +11,10 @@ func TestInitNode(n *Node) *Node {
 }
 func TestAddNode(parent, child *Node) *Node {
 	TestInitNode(child)
-	child.ResetDebugString()
+	resetDebugString(child)
 	parent.nodes = append(parent.nodes, child)
-	return parent.ResetDebugString()
+	resetDebugString(parent)
+	return parent
 }
 func TestGetNode(n *Node, i int) *Node {
 	return n.nodes[i]

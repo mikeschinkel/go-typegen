@@ -1,16 +1,17 @@
 package typegen
 
 import (
-	"fmt"
 	"reflect"
+	"sync"
 
+	. "github.com/mikeschinkel/go-lib"
 	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
 type Nodes []*Node
 
 func (ns Nodes) AppendNode(n *Node) Nodes {
-	n.ResetDebugString()
+	resetDebugString(n)
 	return append(ns, n)
 }
 
@@ -18,7 +19,6 @@ type NodeArgs struct {
 	Value        any
 	ReflectValue *reflect.Value
 	Name         string
-	NodeRef      *Node
 	Type         NodeType
 	marshaler    *NodeMarshaler
 	Index        int
@@ -27,8 +27,8 @@ type NodeArgs struct {
 }
 
 type Node struct {
+	Id          int
 	Value       any
-	NodeRef     *Node
 	Type        NodeType
 	Name        string
 	Parent      *Node
@@ -39,6 +39,9 @@ type Node struct {
 	varname     string
 	debugString string
 }
+
+var idMutex sync.Mutex
+var idDispenser int
 
 func NewNode(args *NodeArgs) (n *Node) {
 
@@ -51,7 +54,6 @@ func NewNode(args *NodeArgs) (n *Node) {
 		Type:      args.Type,
 		Typename:  args.Typename,
 		Value:     args.Value,
-		NodeRef:   args.NodeRef,
 		Marshaler: args.marshaler,
 		Index:     args.Index,
 		Parent:    args.Parent,
@@ -62,19 +64,22 @@ func NewNode(args *NodeArgs) (n *Node) {
 	}
 
 	if n.Typename == "" {
-		panicf("Missing argument for NewNode() for '%s'; either ReflectValue or Typename must be passed.", n)
+		Panicf("Missing argument for NewNode() for '%s'; either ReflectValue or Typename must be passed.", n)
 	}
 
 	n.Reset()
+
+	// TODO: See if this .Id will work in place of comparing reflect.Value elsewehere?
+	idMutex.Lock()
+	idDispenser++
+	n.Id = idDispenser
+	idMutex.Unlock()
+
 	return n
 }
 
-func (n *Node) ResetDebugString() *Node {
-	n.debugString = fmt.Sprintf("%s %sNode [Index: %d]", n.Name, n.Type, n.Index)
-	return n
-}
 func (n *Node) String() string {
-	n.ResetDebugString()
+	resetDebugString(n)
 	return n.debugString
 }
 
@@ -83,7 +88,7 @@ func (n *Node) Reset() *Node {
 		return n
 	}
 	n.nodes = make(Nodes, 0)
-	n.ResetDebugString()
+	resetDebugString(n)
 	return n
 }
 
@@ -93,7 +98,7 @@ func (n *Node) Varname() string {
 
 func (n *Node) SetVarname(name string) *Node {
 	if n.varname != "" {
-		panicf("Unexpected: overwriting varname '%s'", name)
+		Panicf("Unexpected: overwriting varname '%s'", name)
 	}
 	n.varname = name
 	return n
@@ -114,7 +119,7 @@ end:
 
 func (n *Node) AddNode(node *Node) *Node {
 	node.Parent = n
-	node.ResetDebugString()
+	resetDebugString(node)
 	node.Index = len(n.nodes)
 	n.nodes = n.nodes.AppendNode(node)
 

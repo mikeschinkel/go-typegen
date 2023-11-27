@@ -2,6 +2,8 @@ package typegen
 
 import (
 	"reflect"
+
+	. "github.com/mikeschinkel/go-lib"
 )
 
 type NodeType uint
@@ -31,10 +33,9 @@ const (
 	FuncNode          = NodeType(reflect.Func)
 	InvalidNode       = NodeType(reflect.Invalid)
 	UnsafePointerNode = NodeType(reflect.UnsafePointer)
-	RefNode           = NodeType(reflect.UnsafePointer + 10)
-	FieldNode         = NodeType(reflect.UnsafePointer + 11)
-	ElementNode       = NodeType(reflect.UnsafePointer + 12)
-	SubstitutionNode  = NodeType(reflect.UnsafePointer + 13)
+	FieldNode         = NodeType(reflect.UnsafePointer + 10)
+	ElementNode       = NodeType(reflect.UnsafePointer + 11)
+	SubstitutionNode  = NodeType(reflect.UnsafePointer + 12)
 )
 
 var (
@@ -111,8 +112,6 @@ func nodeTypeName(nt NodeType) (s string) {
 		s = "func"
 	case InvalidNode:
 		s = "invalid"
-	case RefNode:
-		s = "ref"
 	case FieldNode:
 		s = "field"
 	case ElementNode:
@@ -124,7 +123,7 @@ func nodeTypeName(nt NodeType) (s string) {
 	case SubstitutionNode:
 		s = "substitution"
 	default:
-		panicf("Invalid node type: %d", nt)
+		Panicf("Invalid node type: %d", nt)
 	}
 	return s
 }

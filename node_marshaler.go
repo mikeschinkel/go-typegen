@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
@@ -25,8 +24,7 @@ func NewNodeMarshaler(subs Substitutions) *NodeMarshaler {
 	m := &NodeMarshaler{
 		substitutions: subs,
 	}
-	m.resetDebugString()
-
+	resetDebugString(m)
 	return m
 }
 
@@ -63,7 +61,7 @@ func (m *NodeMarshaler) Marshal(value any) Nodes {
 
 	// Ensure the root node is not duplicated if referenced elsewhere by making sure
 	// all nodes are connected.
-	m.maybeReuniteNodes()
+	//m.maybeReuniteNodes()
 
 	return m.nodes
 }
@@ -176,11 +174,11 @@ func (m *NodeMarshaler) marshalElements(rv *reflect.Value, parent *Node, nameFun
 		index = rv.Index(i)
 		childValue := m.marshalValue(&index, node)
 		childValue.Name = fmt.Sprintf("Value %d", i)
-		childValue.ResetDebugString()
+		resetDebugString(childValue)
 		child.AddNode(childValue)
 	}
 end:
-	return m.newRefNode(node)
+	return node
 }
 
 func (m *NodeMarshaler) marshalMap(rv *reflect.Value, parent *Node) (node *Node) {
@@ -210,7 +208,7 @@ func (m *NodeMarshaler) marshalMap(rv *reflect.Value, parent *Node) (node *Node)
 		child.AddNode(m.marshalValue(&index, child))
 	}
 end:
-	return m.newRefNode(node)
+	return node
 }
 
 func (m *NodeMarshaler) marshalPointer(rv *reflect.Value, parent *Node) (node *Node) {
@@ -241,7 +239,7 @@ func (m *NodeMarshaler) marshalPointer(rv *reflect.Value, parent *Node) (node *N
 	elem = rv.Elem()
 	node.AddNode(m.marshalValue(&elem, node))
 end:
-	return m.newRefNode(node)
+	return node
 }
 
 func (m *NodeMarshaler) marshalInterface(rv *reflect.Value, parent *Node) (node *Node) {
@@ -272,7 +270,7 @@ func (m *NodeMarshaler) marshalInterface(rv *reflect.Value, parent *Node) (node 
 	elem = rv.Elem()
 	node.AddNode(m.marshalValue(&elem, node))
 end:
-	return m.newRefNode(node)
+	return node
 }
 
 func (m *NodeMarshaler) asString(rv *reflect.Value) (s string) {
@@ -307,7 +305,7 @@ func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *No
 		child.AddNode(m.marshalValue(&crv, child))
 	}
 end:
-	return m.newRefNode(node)
+	return node
 }
 
 // register adds a Node to both .nodeMap and .nodes, and for pointers to .ptrMap.
@@ -320,12 +318,12 @@ func (m *NodeMarshaler) registerNode(rv *reflect.Value, n *Node) {
 		goto end
 	}
 	m.nodeMap[*rv] = n
-	n.ResetDebugString()
+	resetDebugString(n)
 	if rv.Kind() == reflect.Pointer {
 		m.ptrMap[rv.Pointer()] = n
 	}
 	m.nodes = append(m.nodes, n)
-	m.resetDebugString()
+	resetDebugString(m)
 end:
 }
 
@@ -346,10 +344,6 @@ func (m *NodeMarshaler) isRegistered(rv *reflect.Value) (node *Node, found bool)
 
 	// Look for the value pointed to having already been registered
 	node, found = m.findNodeMapKey(rv)
-	if found {
-		// If yes, create a RefNode for it
-		node = m.newRefNode(node)
-	}
 
 end:
 	return node, found
@@ -409,55 +403,4 @@ func (m *NodeMarshaler) sortedKeys(rv *reflect.Value) (keys []reflect.Value) {
 		return keys[i].String() < keys[j].String()
 	})
 	return keys
-}
-
-func (m *NodeMarshaler) newRefNode(node *Node) (n *Node) {
-	return NewNode(&NodeArgs{
-		Name:      fmt.Sprintf("ref:%s", node.Name),
-		NodeRef:   node,
-		Type:      RefNode,
-		marshaler: m,
-		Index:     node.Index,
-		Typename:  "ref",
-	})
-}
-
-// maybeReuniteNodes looks for any pointer parents with children, and/or children with
-// no parents that match and connect them.
-func (m *NodeMarshaler) maybeReuniteNodes() {
-
-	pointers := filterMapFunc(m.nodeMap, func(value reflect.Value, _ *Node) bool {
-		return value.Kind() == reflect.Pointer
-	})
-	nonPointers := filterMapFunc(m.nodeMap, func(value reflect.Value, _ *Node) bool {
-		return value.Kind() != reflect.Pointer
-	})
-
-	for pi, p := range pointers {
-		for npi, np := range nonPointers {
-			if np.Parent != nil {
-				continue
-			}
-			el := pi.Elem()
-			if el.Kind() != npi.Kind() {
-				continue
-			}
-			if el.Comparable() && !el.Equal(npi) {
-				continue
-			}
-			if !reflect.DeepEqual(el, npi) {
-				continue
-			}
-			np.Parent = p
-		}
-	}
-}
-
-func (m *NodeMarshaler) resetDebugString() {
-	sb := strings.Builder{}
-	for index := len(m.nodes) - 1; index >= 1; index-- {
-		sb.WriteByte(' ')
-		sb.WriteString(m.nodes[index].Type.String())
-	}
-	m.debugString = fmt.Sprintf("[%d]%s", len(m.nodeMap), sb.String())
 }

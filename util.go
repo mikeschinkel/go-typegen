@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-func panicf(msg string, args ...any) {
-	panic(fmt.Sprintf(msg, args...))
-}
-
 func filterMapFunc[M ~map[K]V, K comparable, V any](m M, match func(K, V) bool) M {
 	f := make(M, len(m))
 	for k, v := range m {
@@ -20,6 +16,10 @@ func filterMapFunc[M ~map[K]V, K comparable, V any](m M, match func(K, V) bool) 
 	}
 	return f
 }
+
+// resetDebugString provides a stub for replacement by debug.go for when the
+// `debug` tag is used.
+var resetDebugString = func(any) {}
 
 var iFaceRE = regexp.MustCompile(`^(\W*)interface \{}`)
 
@@ -44,13 +44,4 @@ func maybeStripPackage(name, omitPkg string) string {
 	name = pkgStripRE.ReplaceAllString(name, "$1")
 end:
 	return name
-}
-
-func isOneOf[T comparable](val T, options ...T) bool {
-	for _, option := range options {
-		if val == option {
-			return true
-		}
-	}
-	return false
 }
