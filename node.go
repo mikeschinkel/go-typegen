@@ -2,7 +2,6 @@ package typegen
 
 import (
 	"reflect"
-	"sync"
 
 	. "github.com/mikeschinkel/go-lib"
 	"github.com/mikeschinkel/go-typegen/ezreflect"
@@ -40,16 +39,14 @@ type Node struct {
 	debugString string
 }
 
-var idMutex sync.Mutex
-var idDispenser int
-
-func NewNode(args *NodeArgs) (n *Node) {
+func NewNode(id int, args *NodeArgs) (n *Node) {
 
 	if args.Type == InvalidNode {
 		args.Type = NodeType(args.ReflectValue.Kind())
 	}
 
 	n = &Node{
+		Id:        id,
 		Name:      args.Name,
 		Type:      args.Type,
 		Typename:  args.Typename,
@@ -68,12 +65,6 @@ func NewNode(args *NodeArgs) (n *Node) {
 	}
 
 	n.Reset()
-
-	// TODO: See if this .Id will work in place of comparing reflect.Value elsewehere?
-	idMutex.Lock()
-	idDispenser++
-	n.Id = idDispenser
-	idMutex.Unlock()
 
 	return n
 }

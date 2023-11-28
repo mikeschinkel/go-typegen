@@ -18,6 +18,7 @@ type NodeMarshaler struct {
 	root          *Node
 	debugString   string
 	substitutions Substitutions
+	nextNodeId    int
 }
 
 func NewNodeMarshaler(subs Substitutions) *NodeMarshaler {
@@ -25,7 +26,13 @@ func NewNodeMarshaler(subs Substitutions) *NodeMarshaler {
 		substitutions: subs,
 	}
 	resetDebugString(m)
+
 	return m
+}
+
+func (m *NodeMarshaler) NewNode(args *NodeArgs) (n *Node) {
+	m.nextNodeId++
+	return NewNode(m.nextNodeId, args)
 }
 
 func (m *NodeMarshaler) reinitialize() {
@@ -76,7 +83,7 @@ func (m *NodeMarshaler) marshalValue(rv *reflect.Value, parent *Node) (node *Nod
 		subsFunc, ok := m.substitutions[rv.Type()]
 		if ok {
 			reflector := reflect.ValueOf(subsFunc(rv))
-			node = NewNode(&NodeArgs{
+			node = m.NewNode(&NodeArgs{
 				Name:         "substitution",
 				marshaler:    m,
 				Type:         SubstitutionNode,
@@ -98,7 +105,7 @@ func (m *NodeMarshaler) marshalValue(rv *reflect.Value, parent *Node) (node *Nod
 		)
 	}
 	// Scalar
-	node = NewNode(&NodeArgs{
+	node = m.NewNode(&NodeArgs{
 		Name:         name,
 		marshaler:    m,
 		ReflectValue: rv,
@@ -152,7 +159,7 @@ func (m *NodeMarshaler) marshalElements(rv *reflect.Value, parent *Node, nameFun
 	if found {
 		goto end
 	}
-	node = NewNode(&NodeArgs{
+	node = m.NewNode(&NodeArgs{
 		Name:         nameFunc(),
 		marshaler:    m,
 		ReflectValue: rv,
@@ -163,7 +170,7 @@ func (m *NodeMarshaler) marshalElements(rv *reflect.Value, parent *Node, nameFun
 	node.SetNodeCount(rv.Len())
 	for i := 0; i < rv.Len(); i++ {
 		reflector := reflect.ValueOf(i)
-		child := NewNode(&NodeArgs{
+		child := m.NewNode(&NodeArgs{
 			Name:         fmt.Sprintf("Index %d", i),
 			Type:         ElementNode,
 			marshaler:    m,
@@ -192,7 +199,7 @@ func (m *NodeMarshaler) marshalMap(rv *reflect.Value, parent *Node) (node *Node)
 		goto end
 	}
 	name = fmt.Sprintf("map[%s]%s", rv.Type().Key(), rv.Type().Elem())
-	node = NewNode(&NodeArgs{
+	node = m.NewNode(&NodeArgs{
 		Name:         name,
 		marshaler:    m,
 		ReflectValue: rv,
@@ -221,7 +228,7 @@ func (m *NodeMarshaler) marshalPointer(rv *reflect.Value, parent *Node) (node *N
 	}
 	name = rv.Type().String()
 	if rv.IsNil() {
-		node = NewNode(&NodeArgs{
+		node = m.NewNode(&NodeArgs{
 			Name:         name + " (nil)",
 			marshaler:    m,
 			ReflectValue: rv,
@@ -229,7 +236,7 @@ func (m *NodeMarshaler) marshalPointer(rv *reflect.Value, parent *Node) (node *N
 		})
 		goto end
 	}
-	node = NewNode(&NodeArgs{
+	node = m.NewNode(&NodeArgs{
 		Name:         name,
 		marshaler:    m,
 		ReflectValue: rv,
@@ -252,7 +259,7 @@ func (m *NodeMarshaler) marshalInterface(rv *reflect.Value, parent *Node) (node 
 	}
 	name = m.asString(rv)
 	if rv.IsNil() {
-		node = NewNode(&NodeArgs{
+		node = m.NewNode(&NodeArgs{
 			Name:         name + " (nil)",
 			marshaler:    m,
 			ReflectValue: rv,
@@ -260,7 +267,7 @@ func (m *NodeMarshaler) marshalInterface(rv *reflect.Value, parent *Node) (node 
 		})
 		goto end
 	}
-	node = NewNode(&NodeArgs{
+	node = m.NewNode(&NodeArgs{
 		Name:         name,
 		marshaler:    m,
 		ReflectValue: rv,
@@ -284,7 +291,7 @@ func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *No
 	if found {
 		goto end
 	}
-	node = NewNode(&NodeArgs{
+	node = m.NewNode(&NodeArgs{
 		Name:         rv.Type().String(),
 		marshaler:    m,
 		ReflectValue: rv,
@@ -293,7 +300,7 @@ func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *No
 	m.registerNode(rv, node)
 	rt = rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
-		child := NewNode(&NodeArgs{
+		child := m.NewNode(&NodeArgs{
 			Name:      rt.Field(i).Name,
 			Type:      FieldNode,
 			marshaler: m,
