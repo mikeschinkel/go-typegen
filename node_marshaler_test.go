@@ -489,7 +489,6 @@ func pointerToInterfaceStructContainingInterfacesNode(iFace *iFaceStruct) testDa
 				AddNode(nodes[4], &Node{
 					Marshaler: m,
 					Id:        8,
-					Index:     1,
 					Typename:  "int",
 					Name:      `int(10)`,
 					Type:      typegen.IntNode,
