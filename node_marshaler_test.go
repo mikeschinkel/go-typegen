@@ -149,7 +149,9 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			if !tt.skipNodes {
 				want := tt.nodes(m)
 				got := nodes
-				diff := diffator.Diff(want, got)
+				d := diffator.New()
+				d.Pretty = true
+				diff := d.Diff(want, got)
 				if diff != "" {
 					t.Errorf(diff)
 				}

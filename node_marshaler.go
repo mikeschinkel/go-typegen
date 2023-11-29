@@ -188,6 +188,7 @@ func (m *NodeMarshaler) marshalElements(rv *reflect.Value, parent *Node, nameFun
 			ReflectValue: &reflector,
 			Index:        i,
 		})
+		child.Typename = "element"
 		node.AddNode(child)
 		index = rv.Index(i)
 		childValue := m.marshalValue(&index, node)
