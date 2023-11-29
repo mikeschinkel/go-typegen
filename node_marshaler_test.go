@@ -131,12 +131,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			want:      wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:"Hello",iFace2:10,}`),
 			skipNodes: true,
 		},
-		{
-			name:      "Pointer to simple struct",
-			value:     &testStruct{},
-			want:      wantPtrValue(`testStruct`, `testStruct{Int:0,String:"",}`),
-			skipNodes: true,
-		},
 		intNode(),
 		int64Node(),
 		boolNode(),
@@ -147,6 +141,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		nilNode(),
 		pointerToInterfaceStructContainingInterfacesNode(&iFace),
 		simpleStringIntMapNode(),
+		pointerToSimpleStruct(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
@@ -170,6 +165,82 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			got := b.String()
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func pointerToSimpleStruct() testData {
+	value := &testStruct{}
+	return testData{
+		name:  "Pointer to simple struct",
+		value: value,
+		want:  wantPtrValue(`testStruct`, `testStruct{Int:0,String:"",}`),
+		nodes: func(m *nM) Nodes {
+			return FixupNodes(Nodes{
+				nil,
+				{
+					Id:        1,
+					Typename:  "*typegen_test.testStruct",
+					Value:     value,
+					Type:      typegen.PointerNode,
+					Name:      `*typegen_test.testStruct`,
+					Marshaler: m,
+				},
+				{
+					Id:        2,
+					Typename:  "typegen_test.testStruct",
+					Value:     value,
+					Type:      typegen.StructNode,
+					Name:      `typegen_test.testStruct`,
+					Marshaler: m,
+				},
+			}, func(nodes typegen.Nodes) {
+
+				nodes = InitNodes(nodes)
+
+				AddNode(nodes[1], nodes[2])
+				nodes[2].Parent = nodes[1]
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Index:     0,
+					Id:        3,
+					Typename:  "field",
+					Type:      typegen.FieldNode,
+					Name:      "Int",
+					Parent:    nodes[2],
+				})
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Index:     1,
+					Id:        5,
+					Typename:  "field",
+					Type:      typegen.FieldNode,
+					Name:      "String",
+					Parent:    nodes[2],
+				})
+
+				AddNode(GetNode(nodes[2], 0), &Node{
+					Marshaler: m,
+					Id:        4,
+					Typename:  "int",
+					Name:      `int(0)`,
+					Type:      typegen.IntNode,
+					Value:     0,
+					Parent:    GetNode(nodes[2], 0),
+				})
+
+				AddNode(GetNode(nodes[2], 1), &Node{
+					Marshaler: m,
+					Id:        6,
+					Index:     0,
+					Typename:  "string",
+					Name:      `string("")`,
+					Type:      typegen.StringNode,
+					Value:     "",
+					Parent:    GetNode(nodes[2], 1),
+				})
+
+			})
+		},
 	}
 }
 
