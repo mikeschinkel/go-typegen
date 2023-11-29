@@ -474,3 +474,86 @@ func pointerToSimpleStruct() testData {
 		},
 	}
 }
+func sliceOfAnyContainingHelloGoodbye() testData {
+	return testData{
+		name:  "Slice of any containing \"Hello\", \"GoodBy\"",
+		value: []any{"Hello", "Goodbye"},
+		want:  wantValue(`[]any`, `[]any{"Hello","Goodbye",}`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Index:     0,
+					Value:     nil,
+					Type:      typegen.SliceNode,
+					Name:      "[]interface {}",
+					Typename:  "[]interface {}",
+				},
+				{
+					Marshaler: m,
+					Index:     0,
+					Id:        3,
+					Type:      typegen.InterfaceNode,
+					Name:      `Value 0`,
+					Typename:  "any(string)",
+					Value:     "",
+				},
+				{
+					Marshaler: m,
+					Index:     0,
+					Id:        6,
+					Type:      typegen.InterfaceNode,
+					Name:      `Value 1`,
+					Typename:  "any(string)",
+					Value:     `string("Hello")`,
+				},
+			}, func(nodes typegen.Nodes) {
+				nodes = InitNodes(nodes)
+				AddNode(nodes[1], &Node{
+					Marshaler: m,
+					Index:     0,
+					Id:        2,
+					Type:      typegen.ElementNode,
+					Name:      `Index 0`,
+					Parent:    nodes[1],
+					Typename:  "element",
+					Value:     0,
+				})
+				AddNode(GetNode(nodes[1], 0), nodes[2])
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Index:     0,
+					Id:        4,
+					Type:      typegen.StringNode,
+					Name:      `string("Hello")`,
+					Parent:    nodes[2],
+					Typename:  "string",
+					Value:     `"Hello"`,
+				})
+				AddNode(nodes[1], &Node{
+					Marshaler: m,
+					Index:     1,
+					Id:        5,
+					Type:      typegen.ElementNode,
+					Name:      `Index 1`,
+					Parent:    nodes[1],
+					Typename:  "element",
+					Value:     1,
+				})
+				AddNode(GetNode(nodes[1], 1), nodes[3])
+				AddNode(nodes[3], &Node{
+					Marshaler: m,
+					Index:     0,
+					Id:        7,
+					Type:      typegen.StringNode,
+					Name:      `string("Goodbye")`,
+					Parent:    nodes[3],
+					Typename:  "string",
+					Value:     "Goodbye",
+				})
+			})
+		},
+	}
+}

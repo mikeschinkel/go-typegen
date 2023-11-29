@@ -114,12 +114,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			skipNodes: true,
 		},
 		{
-			name:      "Slice of any containing \"Hello\", \"GoodBy\"",
-			value:     []any{"Hello", "Goodbye"},
-			want:      wantValue(`[]any`, `[]any{"Hello","Goodbye",}`),
-			skipNodes: true,
-		},
-		{
 			name:      "[]any{reflect.ValueOf(10)}",
 			value:     []any{reflect.ValueOf(10)},
 			want:      wantValue(`[]any`, `[]any{reflect.ValueOf(10),}`),
@@ -136,6 +130,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		pointerToInterfaceStructContainingInterfacesNode(&iFace),
 		simpleStringIntMapNode(),
 		pointerToSimpleStruct(),
+		sliceOfAnyContainingHelloGoodbye(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
