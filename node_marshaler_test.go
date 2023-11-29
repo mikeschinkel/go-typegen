@@ -212,6 +212,8 @@ func emptyIntSliceNode() testData {
 			return FixupNodes(typegen.Nodes{
 				nil,
 				{
+					Id:        1,
+					Typename:  "[]int",
 					Value:     intSlice,
 					Type:      typegen.SliceNode,
 					Name:      `[]int`,
@@ -221,6 +223,7 @@ func emptyIntSliceNode() testData {
 		},
 	}
 }
+
 func intNode() testData {
 	return testData{
 		name:  "int(100)",
@@ -231,8 +234,10 @@ func intNode() testData {
 				nil,
 				{
 					Marshaler: m,
+					Id:        1,
+					Typename:  "int",
 					Name:      "int(100)",
-					Value:     reflect.ValueOf(100),
+					Value:     100,
 					Type:      typegen.IntNode,
 				},
 			}, nil)
@@ -249,8 +254,10 @@ func boolNode() testData {
 				nil,
 				{
 					Marshaler: m,
+					Id:        1,
+					Typename:  "bool",
 					Name:      "bool(true)",
-					Value:     reflect.ValueOf(true),
+					Value:     true,
 					Type:      typegen.BoolNode,
 				},
 			}, nil)
@@ -267,8 +274,10 @@ func int64Node() testData {
 				nil,
 				{
 					Marshaler: m,
+					Id:        1,
+					Typename:  "int64",
 					Name:      "int64(100)",
-					Value:     reflect.ValueOf(int64(100)),
+					Value:     int64(100),
 					Type:      typegen.Int64Node,
 				},
 			}, nil)
@@ -285,8 +294,10 @@ func float64Node() testData {
 				nil,
 				{
 					Marshaler: m,
+					Id:        1,
+					Typename:  "float64",
 					Name:      "float64(1.23)",
-					Value:     reflect.ValueOf(1.23),
+					Value:     1.23,
 					Type:      typegen.Float64Node,
 				},
 			}, nil)
@@ -303,8 +314,10 @@ func stringNode() testData {
 				nil,
 				{
 					Marshaler: m,
+					Id:        1,
+					Typename:  "string",
 					Name:      `string("Hello World")`,
-					Value:     reflect.ValueOf("Hello World"),
+					Value:     "Hello World",
 					Type:      typegen.StringNode,
 				},
 			}, nil)
@@ -321,26 +334,30 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 				nil,
 				{
 					Marshaler: m,
+					Id:        1,
+					Typename:  "*typegen_test.testStruct",
 					Name:      "*typegen_test.testStruct",
-					Value:     reflect.ValueOf(&myStruct),
+					Value:     &myStruct,
 					Type:      typegen.PointerNode,
 				},
 				{
 					Marshaler: m,
+					Id:        2,
+					Typename:  "typegen_test.testStruct",
 					Name:      "typegen_test.testStruct",
-					Value:     reflect.ValueOf(&myStruct).Elem(), // Note the .Elem()
+					Value:     myStruct,
 					Type:      typegen.StructNode,
 				},
 			}, func(nodes typegen.Nodes) {
-				for _, n := range nodes {
-					InitNode(n)
-				}
 
 				nodes = InitNodes(nodes)
+				AddNode(nodes[1], nodes[2])
 				nodes[2].Parent = nodes[1]
 
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
+					Id:        3,
+					Typename:  "field",
 					Type:      typegen.FieldNode,
 					Name:      "Int",
 					Index:     0,
@@ -348,14 +365,18 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 				})
 				AddNode(GetNode(nodes[2], 0), &Node{
 					Marshaler: m,
+					Id:        4,
+					Typename:  "int",
 					Name:      "int(0)",
 					Type:      typegen.IntNode,
-					Value:     GetNode(nodes[1], 0).Value,
+					Value:     0,
 					Parent:    GetNode(nodes[2], 0),
 				})
 
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
+					Id:        5,
+					Typename:  "field",
 					Type:      typegen.FieldNode,
 					Name:      "String",
 					Index:     1,
@@ -363,9 +384,11 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 				})
 				AddNode(GetNode(nodes[2], 1), &Node{
 					Marshaler: m,
+					Id:        6,
+					Typename:  "string",
 					Name:      `string("")`,
 					Type:      typegen.StringNode,
-					Value:     GetNode(nodes[1], 1).Value,
+					Value:     "",
 					Parent:    GetNode(nodes[2], 1),
 				})
 
@@ -383,6 +406,8 @@ func nilNode() testData {
 			return FixupNodes(typegen.Nodes{
 				nil,
 				{
+					Id:        1,
+					Typename:  "nil",
 					Value:     nil,
 					Type:      typegen.InvalidNode,
 					Name:      `nil`,
