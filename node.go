@@ -1,6 +1,7 @@
 package typegen
 
 import (
+	"fmt"
 	"reflect"
 
 	. "github.com/mikeschinkel/go-lib"
@@ -69,9 +70,11 @@ func NewNode(id int, args *NodeArgs) (n *Node) {
 	return n
 }
 
-func (n *Node) String() string {
-	resetDebugString(n)
-	return n.debugString
+func (n *Node) String() (s string) {
+	if n != nil {
+		s = fmt.Sprintf("%s %sNode [Id: %d, Index: %d]", n.Name, n.Type, n.Id, n.Index)
+	}
+	return s
 }
 
 func (n *Node) Reset() *Node {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
@@ -19,6 +20,15 @@ type NodeMarshaler struct {
 	debugString   string
 	substitutions Substitutions
 	nextNodeId    int
+}
+
+func (m *NodeMarshaler) String() string {
+	sb := strings.Builder{}
+	for index := len(m.nodes) - 1; index >= 1; index-- {
+		sb.WriteByte(' ')
+		sb.WriteString(m.nodes[index].Type.String())
+	}
+	return fmt.Sprintf("[%d]%s", len(m.nodeMap), sb.String())
 }
 
 func NewNodeMarshaler(subs Substitutions) *NodeMarshaler {
