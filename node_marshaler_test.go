@@ -35,7 +35,7 @@ type Nodes = typegen.Nodes
 
 var AddNode = typegen.TestAddNode
 var GetNode = typegen.TestGetNode
-var InitNode = typegen.TestInitNode
+var InitNodes = typegen.TestInitNodes
 var FixupNodes = typegen.TestFixupNodes
 
 type testData struct {
@@ -336,6 +336,7 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 					InitNode(n)
 				}
 
+				nodes = InitNodes(nodes)
 				nodes[2].Parent = nodes[1]
 
 				AddNode(nodes[2], &Node{
