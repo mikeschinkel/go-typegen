@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	. "github.com/mikeschinkel/go-lib"
 	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
@@ -320,7 +321,16 @@ func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *No
 		})
 		node.AddNode(child)
 		crv := rv.Field(i)
-		child.AddNode(m.marshalValue(&crv, child))
+		grandChild := m.marshalValue(&crv, child)
+		child.AddNode(grandChild)
+		if !OneOf(grandChild.Type, InterfaceNode) {
+			continue
+		}
+		grandChild.nodes[0].Index = i
+		resetDebugString(grandChild.nodes[0])
+		child.nodes[0].Index = i
+		resetDebugString(child.nodes[0])
+		print()
 	}
 end:
 	return node
