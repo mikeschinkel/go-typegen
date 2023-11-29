@@ -34,6 +34,7 @@ func (m *NodeMarshaler) String() string {
 func NewNodeMarshaler(subs Substitutions) *NodeMarshaler {
 	m := &NodeMarshaler{
 		substitutions: subs,
+		nodes:         make(Nodes, 0),
 	}
 	resetDebugString(m)
 
