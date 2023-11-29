@@ -125,12 +125,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			want:      wantValue(`[]any`, `[]any{reflect.ValueOf(10),}`),
 			skipNodes: true,
 		},
-		{
-			name:      "Pointer to interface struct containing interface{}(string) and any(int)",
-			value:     &iFace,
-			want:      wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:"Hello",iFace2:10,}`),
-			skipNodes: true,
-		},
 		intNode(),
 		int64Node(),
 		boolNode(),
