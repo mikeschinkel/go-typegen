@@ -13,7 +13,7 @@ func init() {
 	resetDebugString = func(a any) {
 		switch t := a.(type) {
 		case *Node:
-			t.debugString = fmt.Sprintf("%s %sNode [Index: %d]", t.Name, t.Type, t.Index)
+			t.debugString = fmt.Sprintf("%s %sNode [Id: %d, Index: %d]", t.Name, t.Type, t.Id, t.Index)
 			return
 		case *NodeMarshaler:
 			sb := strings.Builder{}
