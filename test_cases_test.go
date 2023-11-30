@@ -476,7 +476,7 @@ func pointerToSimpleStruct() testData {
 }
 func sliceOfAnyContainingHelloGoodbye() testData {
 	return testData{
-		name:  "Slice of any containing \"Hello\", \"GoodBy\"",
+		name:  "Slice of any containing \"Hello\", \"GoodBye\"",
 		value: []any{"Hello", "Goodbye"},
 		want:  wantValue(`[]any`, `[]any{"Hello","Goodbye",}`),
 		nodes: func(m *nM) typegen.Nodes {
@@ -498,7 +498,7 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Type:      typegen.InterfaceNode,
 					Name:      `Value 0`,
 					Typename:  "any(string)",
-					Value:     "",
+					Value:     `Hello`,
 				},
 				{
 					Marshaler: m,
@@ -507,7 +507,7 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Type:      typegen.InterfaceNode,
 					Name:      `Value 1`,
 					Typename:  "any(string)",
-					Value:     `string("Hello")`,
+					Value:     `Goodbye`,
 				},
 			}, func(nodes typegen.Nodes) {
 				nodes = InitNodes(nodes)
