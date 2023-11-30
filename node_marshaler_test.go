@@ -102,18 +102,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			skipNodes: true,
 		},
 		{
-			name:      "Slice of `any` containing 1,2,3",
-			value:     []any{1, 2, 3},
-			want:      wantValue(`[]any`, `[]any{1,2,3,}`),
-			skipNodes: true,
-		},
-		{
-			name:      "Simple any slice, all same numbers",
-			value:     []any{1, 1, 1},
-			want:      wantValue(`[]any`, `[]any{1,1,1,}`),
-			skipNodes: true,
-		},
-		{
 			name:      "[]any{reflect.ValueOf(10)}",
 			value:     []any{reflect.ValueOf(10)},
 			want:      wantValue(`[]any`, `[]any{reflect.ValueOf(10),}`),
@@ -131,6 +119,8 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		simpleStringIntMapNode(),
 		pointerToSimpleStruct(),
 		sliceOfAnyContainingHelloGoodbye(),
+		simpleAnySliceAllSameNumbers(),
+		simpleAnySlice123(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {

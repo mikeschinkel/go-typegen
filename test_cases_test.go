@@ -557,3 +557,236 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 		},
 	}
 }
+
+func simpleAnySliceAllSameNumbers() testData {
+	return testData{
+		name:  "Simple any slice, all same numbers",
+		value: []any{1, 1, 1},
+		want:  wantValue(`[]any`, `[]any{1,1,1,}`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Type:      typegen.SliceNode,
+					Name:      "[]interface {}",
+					Typename:  "[]interface {}",
+				},
+				{
+					Marshaler: m,
+					Id:        3,
+					Name:      "Value 0",
+					Type:      typegen.InterfaceNode,
+					Typename:  "any(int)",
+					Value:     1,
+				},
+				{
+					Marshaler: m,
+					Id:        6,
+					Name:      "Value 1",
+					Type:      typegen.InterfaceNode,
+					Typename:  "any(int)",
+					Value:     1,
+				},
+				{
+					Marshaler: m,
+					Id:        9,
+					Name:      "Value 2",
+					Type:      typegen.InterfaceNode,
+					Typename:  "any(int)",
+					Value:     1,
+				},
+			}, func(nodes typegen.Nodes) {
+
+				nodes = InitNodes(nodes)
+				AddNode(nodes[1], &Node{
+					Parent:    nodes[1],
+					Marshaler: m,
+					Index:     0,
+					Id:        2,
+					Type:      typegen.ElementNode,
+					Name:      `Index 0`,
+					Typename:  "element",
+					Value:     0,
+				})
+				AddNode(nodes[1], &Node{
+					Parent:    nodes[1],
+					Marshaler: m,
+					Index:     1,
+					Id:        5,
+					Type:      typegen.ElementNode,
+					Name:      `Index 1`,
+					Typename:  "element",
+					Value:     1,
+				})
+				AddNode(nodes[1], &Node{
+					Parent:    nodes[1],
+					Marshaler: m,
+					Index:     2,
+					Id:        8,
+					Type:      typegen.ElementNode,
+					Name:      `Index 2`,
+					Typename:  "element",
+					Value:     2,
+				})
+
+				nodes[2].Parent = GetNode(nodes[1], 0)
+				nodes[3].Parent = GetNode(nodes[1], 1)
+				nodes[4].Parent = GetNode(nodes[1], 2)
+
+				AddNode(nodes[2], &Node{
+					Parent:    nodes[2],
+					Id:        4,
+					Marshaler: m,
+					Index:     0,
+					Type:      typegen.IntNode,
+					Name:      `int(1)`,
+					Typename:  "int",
+					Value:     1,
+				})
+				AddNode(nodes[3], &Node{
+					Parent:    nodes[3],
+					Id:        7,
+					Marshaler: m,
+					Index:     0,
+					Type:      typegen.IntNode,
+					Name:      `int(1)`,
+					Typename:  "int",
+					Value:     1,
+				})
+				AddNode(nodes[4], &Node{
+					Parent:    nodes[4],
+					Id:        10,
+					Marshaler: m,
+					Index:     0,
+					Type:      typegen.IntNode,
+					Name:      `int(1)`,
+					Typename:  "int",
+					Value:     1,
+				})
+
+				AddNode(GetNode(nodes[1], 0), nodes[2])
+				AddNode(GetNode(nodes[1], 1), nodes[3])
+				AddNode(GetNode(nodes[1], 2), nodes[4])
+
+			})
+		},
+	}
+}
+func simpleAnySlice123() testData {
+	return testData{
+		name:  "Slice of `any` containing 1,2,3",
+		value: []any{1, 2, 3},
+		want:  wantValue(`[]any`, `[]any{1,2,3,}`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Type:      typegen.SliceNode,
+					Name:      "[]interface {}",
+					Typename:  "[]interface {}",
+				},
+				{
+					Marshaler: m,
+					Id:        3,
+					Name:      "Value 0",
+					Type:      typegen.InterfaceNode,
+					Typename:  "any(int)",
+					Value:     1,
+				},
+				{
+					Marshaler: m,
+					Id:        6,
+					Name:      "Value 1",
+					Type:      typegen.InterfaceNode,
+					Typename:  "any(int)",
+					Value:     2,
+				},
+				{
+					Marshaler: m,
+					Id:        9,
+					Name:      "Value 2",
+					Type:      typegen.InterfaceNode,
+					Typename:  "any(int)",
+					Value:     3,
+				},
+			}, func(nodes typegen.Nodes) {
+
+				nodes = InitNodes(nodes)
+				AddNode(nodes[1], &Node{
+					Parent:    nodes[1],
+					Marshaler: m,
+					Index:     0,
+					Id:        2,
+					Type:      typegen.ElementNode,
+					Name:      `Index 0`,
+					Typename:  "element",
+					Value:     0,
+				})
+				AddNode(nodes[1], &Node{
+					Parent:    nodes[1],
+					Marshaler: m,
+					Index:     1,
+					Id:        5,
+					Type:      typegen.ElementNode,
+					Name:      `Index 1`,
+					Typename:  "element",
+					Value:     1,
+				})
+				AddNode(nodes[1], &Node{
+					Parent:    nodes[1],
+					Marshaler: m,
+					Index:     2,
+					Id:        8,
+					Type:      typegen.ElementNode,
+					Name:      `Index 2`,
+					Typename:  "element",
+					Value:     2,
+				})
+
+				nodes[2].Parent = GetNode(nodes[1], 0)
+				nodes[3].Parent = GetNode(nodes[1], 1)
+				nodes[4].Parent = GetNode(nodes[1], 2)
+
+				AddNode(nodes[2], &Node{
+					Parent:    nodes[2],
+					Id:        4,
+					Marshaler: m,
+					Index:     0,
+					Type:      typegen.IntNode,
+					Name:      `int(1)`,
+					Typename:  "int",
+					Value:     1,
+				})
+				AddNode(nodes[3], &Node{
+					Parent:    nodes[3],
+					Id:        7,
+					Marshaler: m,
+					Index:     0,
+					Type:      typegen.IntNode,
+					Name:      `int(2)`,
+					Typename:  "int",
+					Value:     2,
+				})
+				AddNode(nodes[4], &Node{
+					Parent:    nodes[4],
+					Id:        10,
+					Marshaler: m,
+					Index:     0,
+					Type:      typegen.IntNode,
+					Name:      `int(3)`,
+					Typename:  "int",
+					Value:     3,
+				})
+
+				AddNode(GetNode(nodes[1], 0), nodes[2])
+				AddNode(GetNode(nodes[1], 1), nodes[3])
+				AddNode(GetNode(nodes[1], 2), nodes[4])
+
+			})
+		},
+	}
+}
