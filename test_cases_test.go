@@ -419,7 +419,7 @@ func pointerToSimpleStruct() testData {
 				{
 					Id:        2,
 					Typename:  "typegen_test.testStruct",
-					Value:     value,
+					Value:     *value,
 					Type:      typegen.StructNode,
 					Name:      `typegen_test.testStruct`,
 					Marshaler: m,
