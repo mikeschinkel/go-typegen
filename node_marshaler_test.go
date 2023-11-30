@@ -144,9 +144,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			if !tt.skipNodes {
 				want := tt.nodes(m)
 				got := nodes
-				d := diffator.New()
-				d.Pretty = true
-				diff := d.Diff(want, got)
+				diff := getDiff(want, got)
 				if diff != "" {
 					t.Errorf(diff)
 				}
@@ -157,6 +155,23 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func getDiff(want, got any) (diff string) {
+	d := diffator.New()
+	d.Pretty = true
+	nodeType := reflect.TypeOf((*typegen.NodeType)(nil)).Elem()
+	d.FormatFunc = func(rt diffator.ReflectTyper, a any) (s string) {
+		switch {
+		case rt.ReflectType() == nodeType:
+			s = typegen.NodeType(a.(uint64)).String()
+		default:
+			s = fmt.Sprintf("%v", a)
+		}
+		return s
+	}
+	diff = d.Diff(want, got)
+	return diff
 }
 
 func wantValue(typ, want string, args ...any) string {
