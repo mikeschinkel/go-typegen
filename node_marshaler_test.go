@@ -90,12 +90,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			skipNodes: true,
 		},
 		{
-			name:      "Simple int array",
-			value:     [3]int{1, 2, 3},
-			want:      wantValue(`[3]int`, `[3]int{1,2,3,}`),
-			skipNodes: true,
-		},
-		{
 			name:      "Simple interface containing int",
 			value:     interface{}(10),
 			want:      wantValue(`int`, `10`),
@@ -121,6 +115,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		sliceOfAnyContainingHelloGoodbye(),
 		simpleAnySliceAllSameNumbers(),
 		simpleAnySlice123(),
+		simple3IntArray123(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
