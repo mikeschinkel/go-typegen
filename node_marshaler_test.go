@@ -67,12 +67,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			want:      wantPtrValue(`recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{nil,}%s  var1.recur = var2%s  var2[0] = &var1`, "\n", "\n", "\n"),
 			skipNodes: true,
 		},
-		{
-			name:      "Pointer to struct with property pointing to itself",
-			value:     &recur,
-			want:      wantPtrValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
-			skipNodes: true,
-		},
 		intNode(),
 		int64Node(),
 		boolNode(),
@@ -93,6 +87,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		emptyIntArray(),
 		simpleInterfaceContainingInt10(),
 		anySliceOfReflectValueOf10(),
+		pointerToStructWithPropertyPointingToItself(&recur),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {

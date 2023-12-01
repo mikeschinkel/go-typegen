@@ -1052,3 +1052,89 @@ func anySliceOfReflectValueOf10() testData {
 		},
 	}
 }
+func pointerToStructWithPropertyPointingToItself(value *recurStruct) testData {
+	return testData{
+		name:  "Pointer to struct with property pointing to itself",
+		value: value,
+		want:  wantPtrValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Type:      typegen.PointerNode,
+					Name:      "*typegen_test.recurStruct",
+					Typename:  "*typegen_test.recurStruct",
+					Value:     value,
+				},
+				{
+					Marshaler: m,
+					Id:        2,
+					Name:      "typegen_test.recurStruct",
+					Typename:  "typegen_test.recurStruct",
+					Type:      typegen.StructNode,
+					Value:     *value,
+				},
+			}, func(nodes typegen.Nodes) {
+
+				AddNode(nodes[1], nodes[2])
+
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Parent:    nodes[2],
+					Id:        3,
+					Index:     0,
+					Typename:  "field",
+					Type:      typegen.FieldNode,
+					Name:      "name",
+					Value:     nil,
+				})
+
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Parent:    nodes[2],
+					Id:        5,
+					Index:     1,
+					Typename:  "field",
+					Type:      typegen.FieldNode,
+					Name:      "recur",
+					Value:     nil,
+				})
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Parent:    nodes[2],
+					Id:        6,
+					Index:     2,
+					Typename:  "field",
+					Type:      typegen.FieldNode,
+					Name:      "extra",
+					Value:     nil,
+				})
+
+				AddNode(GetNode(nodes[2], 0), &Node{
+					Marshaler: m,
+					Parent:    GetNode(nodes[2], 0),
+					Id:        4,
+					Name:      `string("root")`,
+					Typename:  "string",
+					Type:      typegen.StringNode,
+					Index:     0,
+					Value:     "root",
+				})
+				AddNode(GetNode(nodes[2], 1), nodes[1])
+				AddNode(GetNode(nodes[2], 2), &Node{
+					Marshaler: m,
+					Parent:    GetNode(nodes[2], 2),
+					Id:        7,
+					Name:      `string("whatever")`,
+					Typename:  "string",
+					Type:      typegen.StringNode,
+					Value:     "whatever",
+					Index:     0,
+				})
+
+			})
+		},
+	}
+}
