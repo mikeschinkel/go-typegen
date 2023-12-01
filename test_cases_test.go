@@ -25,7 +25,6 @@ func emptyIntSliceNode() testData {
 		},
 	}
 }
-
 func intNode() testData {
 	return testData{
 		name:  "int(100)",
@@ -398,7 +397,6 @@ func simpleStringIntMapNode() testData {
 		},
 	}
 }
-
 func pointerToSimpleStruct() testData {
 	value := &testStruct{}
 	return testData{
@@ -557,7 +555,6 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 		},
 	}
 }
-
 func simpleAnySliceAllSameNumbers() testData {
 	return testData{
 		name:  "Simple any slice, all same numbers",
@@ -937,6 +934,28 @@ func emptyIntArray() testData {
 					Type:      typegen.ArrayNode,
 					Name:      "[0]int",
 					Typename:  "[0]int",
+				},
+			}, nil)
+		},
+	}
+}
+
+func simpleInterfaceContainingInt10() testData {
+	value := interface{}(10)
+	return testData{
+		name:  "Simple interface containing int",
+		value: value,
+		want:  wantValue(`int`, `10`),
+		nodes: func(m *nM) Nodes {
+			return FixupNodes(Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Type:      typegen.IntNode,
+					Name:      `int(10)`,
+					Typename:  "int",
+					Value:     value,
 				},
 			}, nil)
 		},
