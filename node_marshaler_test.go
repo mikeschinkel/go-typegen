@@ -141,7 +141,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 }
 
 func getDiff(want, got any) (diff string) {
-	d := diffator.New()
+	d := diffator.NewDiffator()
 	d.Pretty = true
 	nodeType := reflect.TypeOf((*typegen.NodeType)(nil)).Elem()
 	d.FormatFunc = func(rt diffator.ReflectTyper, a any) (s string) {
