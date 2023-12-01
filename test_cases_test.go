@@ -997,7 +997,6 @@ func emptyIntArray() testData {
 		},
 	}
 }
-
 func simpleInterfaceContainingInt10() testData {
 	value := interface{}(10)
 	return testData{
@@ -1019,7 +1018,6 @@ func simpleInterfaceContainingInt10() testData {
 		},
 	}
 }
-
 func anySliceOfReflectValueOf10() testData {
 	value := []any{reflect.ValueOf(10)}
 	return testData{
