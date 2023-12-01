@@ -20,9 +20,6 @@ type recurStruct struct {
 	recur *recurStruct
 	extra string
 }
-type recur2Struct struct {
-	recur []*recur2Struct
-}
 type iFaceStruct struct {
 	iFace1 interface{}
 	iFace2 any
@@ -49,21 +46,11 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 	recur := recurStruct{name: "root", extra: "whatever"}
 	recur.recur = &recur
 
-	recur2 := recur2Struct{}
-	recur2.recur = make([]*recur2Struct, 1)
-	recur2.recur[0] = &recur2
-
 	iFace := iFaceStruct{}
 	iFace.iFace1 = interface{}("Hello")
 	iFace.iFace2 = any(10)
 
 	tests := []testData{
-		{
-			name:      "Pointer to struct with indirect property pointing to itself",
-			value:     &recur2,
-			want:      wantPtrValue(`recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{nil,}%s  var1.recur = var2%s  var2[0] = &var1`, "\n", "\n", "\n"),
-			skipNodes: true,
-		},
 		intNode(),
 		int64Node(),
 		boolNode(),
@@ -85,6 +72,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		simpleInterfaceContainingInt10(),
 		anySliceOfReflectValueOf10(),
 		pointerToStructWithPropertyPointingToItself(&recur),
+		pointerToStructWithIndirectPropertyPointingToItself(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {

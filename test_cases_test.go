@@ -1138,3 +1138,73 @@ func pointerToStructWithPropertyPointingToItself(value *recurStruct) testData {
 		},
 	}
 }
+func pointerToStructWithIndirectPropertyPointingToItself() testData {
+	type recurStruct struct {
+		recur []*recurStruct
+	}
+	recur := recurStruct{}
+	recur.recur = make([]*recurStruct, 1)
+	recur.recur[0] = &recur
+
+	return testData{
+		name:  "Pointer to struct with indirect property pointing to itself",
+		value: &recur,
+		want:  wantPtrValue(`recurStruct`, `recurStruct{recur:nil,}%s  var2 := []*recurStruct{nil,}%s  var1.recur = var2%s  var2[0] = &var1`, "\n", "\n", "\n"),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Type:      typegen.PointerNode,
+					Name:      "Value 0",
+					Typename:  "*typegen_test.recurStruct",
+					Value:     &recur,
+				},
+				{
+					Marshaler: m,
+					Id:        2,
+					Name:      "typegen_test.recurStruct",
+					Typename:  "typegen_test.recurStruct",
+					Type:      typegen.StructNode,
+					Value:     recur,
+				},
+				{
+					Marshaler: m,
+					Id:        4,
+					Name:      "[]*typegen_test.recurStruct",
+					Typename:  "[]*typegen_test.recurStruct",
+					Type:      typegen.SliceNode,
+					Value:     recur,
+				},
+			}, func(nodes typegen.Nodes) {
+
+				AddNode(nodes[1], nodes[2])
+
+				AddNode(nodes[2], &Node{
+					Marshaler: m,
+					Parent:    nodes[2],
+					Id:        3,
+					Index:     0,
+					Typename:  "field",
+					Type:      typegen.FieldNode,
+					Name:      "recur",
+				})
+
+				AddNode(GetNode(nodes[2], 0), nodes[3])
+
+				AddNode(nodes[3], &Node{
+					Marshaler: m,
+					Parent:    nodes[3],
+					Id:        5,
+					Name:      `Index 0`,
+					Typename:  "element",
+					Type:      typegen.ElementNode,
+				})
+
+				AddNode(GetNode(nodes[3], 0), nodes[1])
+
+			})
+		},
+	}
+}
