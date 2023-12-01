@@ -49,7 +49,7 @@ func TestFixupNodes(ns Nodes, f func(Nodes)) Nodes {
 		ns[i] = n.Reset()
 	}
 	if f != nil {
-		f(ns)
+		f(TestInitNodes(ns))
 	}
 	return ns
 }

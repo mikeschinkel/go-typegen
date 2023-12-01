@@ -153,7 +153,6 @@ func pointerToSimpleStructNode(myStruct testStruct) testData {
 				},
 			}, func(nodes typegen.Nodes) {
 
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], nodes[2])
 				nodes[2].Parent = nodes[1]
 
@@ -264,8 +263,6 @@ func pointerToInterfaceStructContainingInterfacesNode(iFace *iFaceStruct) testDa
 				},
 			}, func(nodes typegen.Nodes) {
 
-				nodes = InitNodes(nodes)
-
 				AddNode(nodes[1], nodes[2])
 				nodes[2].Parent = nodes[1]
 				AddNode(nodes[2], &Node{
@@ -335,8 +332,6 @@ func simpleStringIntMapNode() testData {
 					Marshaler: m,
 				},
 			}, func(nodes typegen.Nodes) {
-
-				nodes = InitNodes(nodes)
 
 				AddNode(nodes[1], &Node{
 					Marshaler: m,
@@ -426,8 +421,6 @@ func pointerToSimpleStruct() testData {
 				},
 			}, func(nodes typegen.Nodes) {
 
-				nodes = InitNodes(nodes)
-
 				AddNode(nodes[1], nodes[2])
 				nodes[2].Parent = nodes[1]
 				AddNode(nodes[2], &Node{
@@ -510,7 +503,6 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Value:     `Goodbye`,
 				},
 			}, func(nodes typegen.Nodes) {
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], &Node{
 					Marshaler: m,
 					Index:     0,
@@ -598,7 +590,6 @@ func simpleAnySliceAllSameNumbers() testData {
 				},
 			}, func(nodes typegen.Nodes) {
 
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], &Node{
 					Parent:    nodes[1],
 					Marshaler: m,
@@ -714,7 +705,6 @@ func simpleAnySlice123() testData {
 				},
 			}, func(nodes typegen.Nodes) {
 
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], &Node{
 					Parent:    nodes[1],
 					Marshaler: m,
@@ -805,7 +795,6 @@ func simple3ElementIntArray123() testData {
 					Typename:  "[3]int",
 				},
 			}, func(nodes typegen.Nodes) {
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], &Node{
 					Parent:    nodes[1],
 					Marshaler: m,
@@ -906,7 +895,6 @@ func simple3ElementIntSlice123() testData {
 					Typename:  "[]int",
 				},
 			}, func(nodes typegen.Nodes) {
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], &Node{
 					Parent:    nodes[1],
 					Marshaler: m,
@@ -1040,7 +1028,6 @@ func anySliceOfReflectValueOf10() testData {
 				},
 			}, func(nodes typegen.Nodes) {
 
-				nodes = InitNodes(nodes)
 				AddNode(nodes[1], &Node{
 					Parent:    nodes[1],
 					Id:        2,
