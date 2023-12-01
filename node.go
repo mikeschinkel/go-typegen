@@ -29,13 +29,13 @@ type NodeArgs struct {
 type Node struct {
 	Id          int
 	Value       any
+	Typename    string
 	Type        NodeType
 	Name        string
 	Parent      *Node
 	nodes       Nodes
 	Marshaler   *NodeMarshaler
 	Index       int
-	Typename    string
 	varname     string
 	debugString string
 }

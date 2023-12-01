@@ -73,12 +73,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			want:      wantPtrValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
 			skipNodes: true,
 		},
-		{
-			name:      "[]any{reflect.ValueOf(10)}",
-			value:     []any{reflect.ValueOf(10)},
-			want:      wantValue(`[]any`, `[]any{reflect.ValueOf(10),}`),
-			skipNodes: true,
-		},
 		intNode(),
 		int64Node(),
 		boolNode(),
@@ -98,6 +92,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		simple3ElementIntSlice123(),
 		emptyIntArray(),
 		simpleInterfaceContainingInt10(),
+		anySliceOfReflectValueOf10(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
