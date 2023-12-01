@@ -923,3 +923,22 @@ func simple3ElementIntSlice123() testData {
 		},
 	}
 }
+func emptyIntArray() testData {
+	return testData{
+		name:  "Empty array",
+		value: [0]int{},
+		want:  wantValue(`[0]int`, `[0]int{}`),
+		nodes: func(m *nM) typegen.Nodes {
+			return FixupNodes(typegen.Nodes{
+				nil,
+				{
+					Marshaler: m,
+					Id:        1,
+					Type:      typegen.ArrayNode,
+					Name:      "[0]int",
+					Typename:  "[0]int",
+				},
+			}, nil)
+		},
+	}
+}

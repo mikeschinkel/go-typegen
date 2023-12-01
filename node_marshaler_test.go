@@ -74,12 +74,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 			skipNodes: true,
 		},
 		{
-			name:      "Empty array",
-			value:     [0]int{},
-			want:      wantValue(`[0]int`, `[0]int{}`),
-			skipNodes: true,
-		},
-		{
 			name:      "Simple interface containing int",
 			value:     interface{}(10),
 			want:      wantValue(`int`, `10`),
@@ -108,6 +102,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		simple3ElementIntArray123(),
 		emptyStringIntMap(),
 		simple3ElementIntSlice123(),
+		emptyIntArray(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
