@@ -15,11 +15,6 @@ type testStruct struct {
 	String string
 }
 
-type recurStruct struct {
-	name  string
-	recur *recurStruct
-	extra string
-}
 type iFaceStruct struct {
 	iFace1 interface{}
 	iFace2 any
@@ -43,9 +38,6 @@ type testData struct {
 }
 
 func TestNodeBuilder_Marshal(t *testing.T) {
-	recur := recurStruct{name: "root", extra: "whatever"}
-	recur.recur = &recur
-
 	iFace := iFaceStruct{}
 	iFace.iFace1 = interface{}("Hello")
 	iFace.iFace2 = any(10)
@@ -71,7 +63,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		emptyIntArray(),
 		simpleInterfaceContainingInt10(),
 		anySliceOfReflectValueOf10(),
-		pointerToStructWithPropertyPointingToItself(&recur),
+		pointerToStructWithPropertyPointingToItself(),
 		pointerToStructWithIndirectPropertyPointingToItself(),
 	}
 	subs := typegen.Substitutions{

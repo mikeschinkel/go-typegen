@@ -1052,10 +1052,18 @@ func anySliceOfReflectValueOf10() testData {
 		},
 	}
 }
-func pointerToStructWithPropertyPointingToItself(value *recurStruct) testData {
+func pointerToStructWithPropertyPointingToItself() testData {
+	type recurStruct struct {
+		name  string
+		recur *recurStruct
+		extra string
+	}
+	recur := recurStruct{name: "root", extra: "whatever"}
+	recur.recur = &recur
+
 	return testData{
 		name:  "Pointer to struct with property pointing to itself",
-		value: value,
+		value: &recur,
 		want:  wantPtrValue(`recurStruct`, `recurStruct{name:"root",recur:nil,extra:"whatever",}%s  var1.recur = &var1`, "\n"),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -1066,7 +1074,7 @@ func pointerToStructWithPropertyPointingToItself(value *recurStruct) testData {
 					Type:      typegen.PointerNode,
 					Name:      "*typegen_test.recurStruct",
 					Typename:  "*typegen_test.recurStruct",
-					Value:     value,
+					Value:     &recur,
 				},
 				{
 					Marshaler: m,
@@ -1074,7 +1082,7 @@ func pointerToStructWithPropertyPointingToItself(value *recurStruct) testData {
 					Name:      "typegen_test.recurStruct",
 					Typename:  "typegen_test.recurStruct",
 					Type:      typegen.StructNode,
-					Value:     *value,
+					Value:     recur,
 				},
 			}, func(nodes typegen.Nodes) {
 
