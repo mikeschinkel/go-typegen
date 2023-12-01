@@ -28,8 +28,17 @@ func TestAddNode(parent, child *Node) *Node {
 	return parent
 }
 
+func TestResetNode(n *Node) *Node {
+	resetDebugString(n)
+	return n
+}
+
 func TestGetNode(n *Node, i int) *Node {
 	return n.nodes[i]
+}
+
+func TestGetNodes(n *Node) Nodes {
+	return n.nodes
 }
 
 func TestFixupNodes(ns Nodes, f func(Nodes)) Nodes {

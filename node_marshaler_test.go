@@ -35,6 +35,8 @@ type Nodes = typegen.Nodes
 
 var AddNode = typegen.TestAddNode
 var GetNode = typegen.TestGetNode
+var ResetNode = typegen.TestResetNode
+var GetNodes = typegen.TestGetNodes
 var InitNodes = typegen.TestInitNodes
 var FixupNodes = typegen.TestFixupNodes
 
@@ -109,8 +111,9 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		sliceOfAnyContainingHelloGoodbye(),
 		simpleAnySliceAllSameNumbers(),
 		simpleAnySlice123(),
-		simple3IntArray123(),
+		simple3ElementIntArray123(),
 		emptyStringIntMap(),
+		simple3ElementIntSlice123(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {

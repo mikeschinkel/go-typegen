@@ -790,35 +790,22 @@ func simpleAnySlice123() testData {
 		},
 	}
 }
-func simple3IntArray123() testData {
+func simple3ElementIntArray123() testData {
 	return testData{
-		name:  "Simple int array",
+		name:  "Simple 3-element int array: 1, 2, 3",
 		value: [3]int{1, 2, 3},
 		want:  wantValue(`[3]int`, `[3]int{1,2,3,}`),
 		nodes: func(m *nM) typegen.Nodes {
-			return FixupNodes(typegen.Nodes{
-				nil,
-				{
-					Marshaler: m,
-					Id:        1,
-					Type:      typegen.ArrayNode,
-					Name:      "[3]int",
-					Typename:  "[3]int",
-				},
-			}, func(nodes typegen.Nodes) {
-
-				nodes = InitNodes(nodes)
-				AddNode(nodes[1], &Node{
-					Parent:    nodes[1],
-					Marshaler: m,
-					Index:     0,
-					Id:        2,
-					Type:      typegen.ElementNode,
-					Name:      `Index 0`,
-					Typename:  "element",
-					Value:     0,
-				})
-			})
+			nodes := simple3Elements123()
+			nodes[1].Type = typegen.ArrayNode
+			nodes[1].Typename = "[3]int"
+			nodes[1].Name = "[3]int"
+			nodes[1].Marshaler = m
+			ResetNode(nodes[1])
+			for i := range GetNodes(nodes[1]) {
+				GetNode(nodes[1], i).Marshaler = m
+			}
+			return nodes
 		},
 	}
 }
@@ -838,6 +825,101 @@ func emptyStringIntMap() testData {
 					Typename:  "map[string]int",
 				},
 			}, nil)
+		},
+	}
+}
+func simple3Elements123() typegen.Nodes {
+	return FixupNodes(typegen.Nodes{
+		nil,
+		{
+			Marshaler: nil,
+			Id:        1,
+			Type:      typegen.InvalidNode,
+			Name:      "<replace_me>",
+			Typename:  "<replace_me>",
+		},
+	}, func(nodes typegen.Nodes) {
+
+		nodes = InitNodes(nodes)
+		AddNode(nodes[1], &Node{
+			Parent:    nodes[1],
+			Marshaler: nil,
+			Index:     0,
+			Id:        2,
+			Type:      typegen.ElementNode,
+			Name:      `Index 0`,
+			Typename:  "element",
+			Value:     0,
+		})
+		AddNode(nodes[1], &Node{
+			Parent:    nodes[1],
+			Marshaler: nil,
+			Index:     1,
+			Id:        5,
+			Type:      typegen.ElementNode,
+			Name:      `Index 1`,
+			Typename:  "element",
+			Value:     1,
+		})
+		AddNode(nodes[1], &Node{
+			Parent:    nodes[1],
+			Marshaler: nil,
+			Index:     2,
+			Id:        8,
+			Type:      typegen.ElementNode,
+			Name:      `Index 2`,
+			Typename:  "element",
+			Value:     2,
+		})
+
+		AddNode(GetNode(nodes[1], 0), &Node{
+			Parent:    GetNode(nodes[1], 0),
+			Id:        4,
+			Marshaler: nil,
+			Index:     0,
+			Type:      typegen.IntNode,
+			Name:      `int(1)`,
+			Typename:  "int",
+			Value:     1,
+		})
+		AddNode(GetNode(nodes[1], 1), &Node{
+			Parent:    GetNode(nodes[1], 1),
+			Id:        7,
+			Marshaler: nil,
+			Index:     0,
+			Type:      typegen.IntNode,
+			Name:      `int(2)`,
+			Typename:  "int",
+			Value:     2,
+		})
+		AddNode(GetNode(nodes[1], 2), &Node{
+			Parent:    GetNode(nodes[1], 2),
+			Id:        10,
+			Marshaler: nil,
+			Index:     0,
+			Type:      typegen.IntNode,
+			Name:      `int(3)`,
+			Typename:  "int",
+			Value:     3,
+		})
+	})
+}
+func simple3ElementIntSlice123() testData {
+	return testData{
+		name:  "Simple 3-element int slice: 1, 2, 3",
+		value: []int{1, 2, 3},
+		want:  wantValue(`[]int`, `[]int{1,2,3,}`),
+		nodes: func(m *nM) typegen.Nodes {
+			nodes := simple3Elements123()
+			nodes[1].Type = typegen.SliceNode
+			nodes[1].Typename = "[]int"
+			nodes[1].Name = "[]int"
+			nodes[1].Marshaler = m
+			ResetNode(nodes[1])
+			for i := range GetNodes(nodes[1]) {
+				GetNode(nodes[1], i).Marshaler = m
+			}
+			return nodes
 		},
 	}
 }
