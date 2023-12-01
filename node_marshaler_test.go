@@ -15,11 +15,6 @@ type testStruct struct {
 	String string
 }
 
-type iFaceStruct struct {
-	iFace1 interface{}
-	iFace2 any
-}
-
 type nM = typegen.NodeMarshaler
 type nodesFunc func(m *nM) typegen.Nodes
 type Node = typegen.Node
@@ -38,10 +33,6 @@ type testData struct {
 }
 
 func TestNodeBuilder_Marshal(t *testing.T) {
-	iFace := iFaceStruct{}
-	iFace.iFace1 = interface{}("Hello")
-	iFace.iFace2 = any(10)
-
 	tests := []testData{
 		intNode(),
 		int64Node(),
@@ -51,7 +42,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		pointerToSimpleStructNode(testStruct{}),
 		emptyIntSliceNode(),
 		nilNode(),
-		pointerToInterfaceStructContainingInterfacesNode(&iFace),
+		pointerToInterfaceStructContainingInterfacesNode(),
 		simpleStringIntMapNode(),
 		pointerToSimpleStruct(),
 		sliceOfAnyContainingHelloGoodbye(),
