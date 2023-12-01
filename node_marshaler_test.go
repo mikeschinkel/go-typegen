@@ -35,9 +35,6 @@ type Nodes = typegen.Nodes
 
 var AddNode = typegen.TestAddNode
 var GetNode = typegen.TestGetNode
-var ResetNode = typegen.TestResetNode
-var GetNodes = typegen.TestGetNodes
-var InitNodes = typegen.TestInitNodes
 var FixupNodes = typegen.TestFixupNodes
 
 type testData struct {
