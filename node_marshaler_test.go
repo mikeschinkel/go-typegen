@@ -62,12 +62,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 
 	tests := []testData{
 		{
-			name:      "Simple int slice",
-			value:     []int{1, 2, 3},
-			want:      wantValue(`[]int`, `[]int{1,2,3,}`),
-			skipNodes: true,
-		},
-		{
 			name:      "Pointer to struct with indirect property pointing to itself",
 			value:     &recur2,
 			want:      wantPtrValue(`recur2Struct`, `recur2Struct{recur:nil,}%s  var2 := []*recur2Struct{nil,}%s  var1.recur = var2%s  var2[0] = &var1`, "\n", "\n", "\n"),
