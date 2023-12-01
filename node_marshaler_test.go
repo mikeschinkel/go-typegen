@@ -60,12 +60,6 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 
 	tests := []testData{
 		{
-			name:      "Empty string/int map",
-			value:     map[string]int{},
-			want:      wantValue("map[string]int", "map[string]int{}"),
-			skipNodes: true,
-		},
-		{
 			name:      "Simple int slice",
 			value:     []int{1, 2, 3},
 			want:      wantValue(`[]int`, `[]int{1,2,3,}`),
@@ -116,6 +110,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		simpleAnySliceAllSameNumbers(),
 		simpleAnySlice123(),
 		simple3IntArray123(),
+		emptyStringIntMap(),
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
