@@ -127,7 +127,12 @@ func stringNode() testData {
 		},
 	}
 }
-func pointerToSimpleStructNode(myStruct testStruct) testData {
+func pointerToSimpleStructNode() testData {
+	type testStruct struct {
+		Int    int
+		String string
+	}
+	myStruct := testStruct{}
 	return testData{
 		name:  "Pointer to simple struct",
 		value: &myStruct,
@@ -404,6 +409,10 @@ func simpleStringIntMapNode() testData {
 	}
 }
 func pointerToSimpleStruct() testData {
+	type testStruct struct {
+		Int    int
+		String string
+	}
 	value := &testStruct{}
 	return testData{
 		name:  "Pointer to simple struct",

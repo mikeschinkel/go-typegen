@@ -10,11 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type testStruct struct {
-	Int    int
-	String string
-}
-
 type nM = typegen.NodeMarshaler
 type nodesFunc func(m *nM) typegen.Nodes
 type Node = typegen.Node
@@ -39,7 +34,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 		boolNode(),
 		stringNode(),
 		float64Node(),
-		pointerToSimpleStructNode(testStruct{}),
+		pointerToSimpleStructNode(),
 		emptyIntSliceNode(),
 		nilNode(),
 		pointerToInterfaceStructContainingInterfacesNode(),
