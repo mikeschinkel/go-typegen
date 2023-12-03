@@ -55,15 +55,11 @@ func AsString(rv reflect.Value) (s string) {
 }
 
 func TypenameOf(rv reflect.Value) (n string) {
-	return diffator.TypenameOf(diffator.NewDiffator().NewValue(rv))
+	return diffator.NewReflector().TypenameOf(rv)
 }
 
 func ChildOf(rv reflect.Value) (c reflect.Value) {
-	switch rv.Kind() {
-	case reflect.Pointer, reflect.Interface:
-		c = rv.Elem()
-	}
-	return c
+	return diffator.NewReflector().ChildOf(rv)
 }
 
 func Equivalent(v1, v2 any) (same bool) {
