@@ -224,37 +224,39 @@ func nilNode() testData {
 		},
 	}
 }
-func pointerToInterfaceStructContainingInterfacesNode() testData {
-	type iFaceStruct struct {
-		iFace1 interface{}
-		iFace2 any
-	}
 
-	iFace := iFaceStruct{}
+type IFaceStruct struct {
+	iFace1 interface{}
+	iFace2 any
+}
+
+func pointerToInterfaceStructContainingInterfacesNode() testData {
+
+	iFace := IFaceStruct{}
 	iFace.iFace1 = interface{}("Hello")
 	iFace.iFace2 = any(10)
 
 	return testData{
 		name:  "Pointer to interface struct containing interface{}(string) and any(int)",
 		value: &iFace,
-		want:  wantPtrValue(`iFaceStruct`, `iFaceStruct{iFace1:"Hello",iFace2:10,}`),
+		want:  wantPtrValue(`IFaceStruct`, `IFaceStruct{iFace1:"Hello",iFace2:10,}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
 				nil,
 				{
 					Marshaler: m,
 					Id:        1,
-					Name:      `*typegen_test.iFaceStruct`,
+					Name:      `*typegen_test.IFaceStruct`,
 					Type:      typegen.PointerNode,
-					Typename:  "*typegen_test.iFaceStruct",
+					Typename:  "*typegen_test.IFaceStruct",
 					Value:     &iFace,
 				},
 				{
 					Marshaler: m,
 					Id:        2,
-					Name:      `typegen_test.iFaceStruct`,
+					Name:      `typegen_test.IFaceStruct`,
 					Type:      typegen.StructNode,
-					Typename:  "typegen_test.iFaceStruct",
+					Typename:  "typegen_test.IFaceStruct",
 					Value:     iFace,
 				},
 				{
