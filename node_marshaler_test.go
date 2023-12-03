@@ -81,9 +81,9 @@ func getDiff(want, got any) (diff string) {
 	d := diffator.NewDiffator()
 	d.Pretty = true
 	nodeType := reflect.TypeOf((*typegen.NodeType)(nil)).Elem()
-	d.FormatFunc = func(rt diffator.ReflectTyper, a any) (s string) {
+	d.FormatFunc = func(rt reflect.Type, a any) (s string) {
 		switch {
-		case rt.ReflectType() == nodeType:
+		case rt == nodeType:
 			s = typegen.NodeType(a.(uint64)).String()
 		default:
 			s = fmt.Sprintf("%v", a)
