@@ -3,7 +3,8 @@ package ezreflect
 import (
 	"fmt"
 	"reflect"
-	"strconv"
+
+	"github.com/mikeschinkel/go-diffator"
 )
 
 func panicf(msg string, args ...any) {
@@ -50,60 +51,11 @@ end:
 }
 
 func AsString(rv reflect.Value) (s string) {
-	if !rv.IsValid() {
-		s = "nil"
-		goto end
-	}
-	switch rv.Kind() {
-	case reflect.Interface:
-		// TODO: What about named interfaces?
-		s = fmt.Sprintf("any(%s)", AsString(ChildOf(rv)))
-	case reflect.Pointer:
-		// TODO: This is probably wrong
-		s = fmt.Sprintf("*%s", AsString(ChildOf(rv)))
-	case reflect.String:
-		s = strconv.Quote(rv.String())
-	case reflect.Int, reflect.Int8, reflect.Int16:
-		s = strconv.Itoa(int(rv.Int()))
-	case reflect.Int32, reflect.Int64:
-		s = strconv.FormatInt(rv.Int(), 10)
-	case reflect.Float32:
-		s = strconv.FormatFloat(rv.Float(), 'g', 10, 32)
-	case reflect.Float64:
-		s = strconv.FormatFloat(rv.Float(), 'g', 10, 64)
-	case reflect.Map, reflect.Slice, reflect.Struct:
-		s = fmt.Sprintf("%s{...}", TypenameOf(rv))
-	case reflect.Bool:
-		if rv.Bool() {
-			s = "true"
-		} else {
-			s = "false"
-		}
-	default:
-		panicf("Unhandled (s of yet) reflect value kind: %s", rv.Kind())
-	}
-end:
-	return s
+	return diffator.NewReflector().AsString(rv)
 }
 
 func TypenameOf(rv reflect.Value) (n string) {
-	var rt reflect.Type
-
-	if !rv.IsValid() {
-		n = "nil"
-		goto end
-	}
-	rt = rv.Type()
-	switch rv.Kind() {
-	case reflect.Interface:
-		n = fmt.Sprintf("any(%s)", TypenameOf(ChildOf(rv)))
-	case reflect.Pointer:
-		n = fmt.Sprintf("*%s", TypenameOf(ChildOf(rv)))
-	default:
-		n = rt.String()
-	}
-end:
-	return n
+	return diffator.TypenameOf(diffator.NewDiffator().NewValue(rv))
 }
 
 func ChildOf(rv reflect.Value) (c reflect.Value) {
