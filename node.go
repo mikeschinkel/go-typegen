@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/mikeschinkel/go-diffator"
 	. "github.com/mikeschinkel/go-lib"
-	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
 type Nodes []*Node
@@ -57,8 +57,9 @@ func NewNode(id int, args *NodeArgs) (n *Node) {
 		Parent:    args.Parent,
 	}
 	if args.ReflectValue != nil {
-		n.Value = ezreflect.AsAny(*args.ReflectValue)
-		n.Typename = ezreflect.TypenameOf(*args.ReflectValue)
+		r := diffator.NewReflector(args.ReflectValue)
+		n.Value = r.Any()
+		n.Typename = r.Typename()
 	}
 
 	if n.Typename == "" {

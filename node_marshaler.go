@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mikeschinkel/go-typegen/ezreflect"
+	"github.com/mikeschinkel/go-diffator"
 )
 
 type Substitutions map[reflect.Type]func(*reflect.Value) string
@@ -112,7 +112,7 @@ func (m *NodeMarshaler) marshalValue(rv *reflect.Value, parent *Node) (node *Nod
 	if rv.IsValid() {
 		name = fmt.Sprintf("%s(%s)",
 			rv.Type().String(),
-			ezreflect.NewReflectWrapper(*rv).String(),
+			diffator.NewReflectorFromValue(rv).String(),
 		)
 	}
 	// Scalar
@@ -293,7 +293,7 @@ end:
 }
 
 func (m *NodeMarshaler) asString(rv *reflect.Value) (s string) {
-	return ezreflect.AsString(*rv)
+	return diffator.NewReflectorFromValue(rv).String()
 }
 
 func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *Node) {
@@ -387,7 +387,7 @@ func (m *NodeMarshaler) findNodeMapKey(rv *reflect.Value) (node *Node, found boo
 		if rv.Kind() == reflect.Pointer {
 			continue
 		}
-		if !ezreflect.Equivalent(k, rv) {
+		if !diffator.Equivalent(k, rv) {
 			continue
 		}
 		if len(n.nodes) == 0 {
@@ -402,7 +402,7 @@ func (m *NodeMarshaler) findNodeMapKey(rv *reflect.Value) (node *Node, found boo
 		if rv.Kind() != reflect.Pointer {
 			continue
 		}
-		if !ezreflect.Equivalent(k, rv.Elem()) {
+		if !diffator.Equivalent(k, rv.Elem()) {
 			continue
 		}
 		if len(n.nodes) == 0 {

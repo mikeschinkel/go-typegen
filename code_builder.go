@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mikeschinkel/go-diffator"
 	. "github.com/mikeschinkel/go-lib"
-	"github.com/mikeschinkel/go-typegen/ezreflect"
 )
 
 type CodeBuilder struct {
@@ -95,7 +95,7 @@ func (b *CodeBuilder) matchesPrior(n *Node, index int) (matches bool) {
 	if len(n.nodes) == 0 {
 		goto end
 	}
-	matches = ezreflect.Equivalent(
+	matches = diffator.Equivalent(
 		n.nodes[0].Value,
 		b.nodes[index-1].Value,
 	)
