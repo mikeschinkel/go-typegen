@@ -93,12 +93,12 @@ func (m *NodeMarshaler) marshalValue(rv *reflect.Value, parent *Node) (node *Nod
 	if rv.IsValid() {
 		subsFunc, ok := m.substitutions[rv.Type()]
 		if ok {
-			reflector := reflect.ValueOf(subsFunc(rv))
+			reflectValue := reflect.ValueOf(subsFunc(rv))
 			node = m.NewNode(&NodeArgs{
 				Name:         "substitution",
 				marshaler:    m,
 				Type:         SubstitutionNode,
-				ReflectValue: &reflector,
+				ReflectValue: &reflectValue,
 				Parent:       parent,
 			})
 			goto end
@@ -180,12 +180,12 @@ func (m *NodeMarshaler) marshalElements(rv *reflect.Value, parent *Node, nameFun
 
 	node.SetNodeCount(rv.Len())
 	for i := 0; i < rv.Len(); i++ {
-		reflector := reflect.ValueOf(i)
+		reflectValue := reflect.ValueOf(i)
 		child := m.NewNode(&NodeArgs{
 			Name:         fmt.Sprintf("Index %d", i),
 			Type:         ElementNode,
 			marshaler:    m,
-			ReflectValue: &reflector,
+			ReflectValue: &reflectValue,
 			Index:        i,
 		})
 		child.Typename = "element"
