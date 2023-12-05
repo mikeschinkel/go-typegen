@@ -280,7 +280,7 @@ func (m *NodeMarshaler) marshalInterface(rv *reflect.Value, parent *Node) (node 
 		goto end
 	}
 	node = m.NewNode(&NodeArgs{
-		Name:         name,
+		Name:         fmt.Sprintf("any(%s)", name),
 		marshaler:    m,
 		ReflectValue: rv,
 		Parent:       parent,
@@ -328,7 +328,6 @@ func (m *NodeMarshaler) marshalStruct(rv *reflect.Value, parent *Node) (node *No
 		}
 		child.nodes[0].Index = i
 		resetDebugString(child.nodes[0])
-		print()
 	}
 end:
 	return node

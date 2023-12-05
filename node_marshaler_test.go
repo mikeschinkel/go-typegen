@@ -29,7 +29,7 @@ type testData struct {
 
 func TestNodeBuilder_Marshal(t *testing.T) {
 	tests := []testData{
-		intNode(),
+		int100Node(),
 		int64Node(),
 		boolNode(),
 		stringNode(),
@@ -54,7 +54,7 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 	}
 	subs := typegen.Substitutions{
 		reflect.TypeOf(reflect.Value{}): func(rv *reflect.Value) string {
-			return fmt.Sprintf("reflect.ValueOf(%v)", rv.Interface())
+			return fmt.Sprintf("reflect.ValueOf(%v)", (*rv).Interface())
 		},
 	}
 	for _, tt := range tests {
@@ -83,8 +83,12 @@ func getDiff(want, got any) (diff string) {
 	nodeType := reflect.TypeOf((*typegen.NodeType)(nil)).Elem()
 	d.FormatFunc = func(rt reflect.Type, a any) (s string) {
 		switch {
+		case rt == nil:
+			s = "<invalid>"
 		case rt == nodeType:
 			s = typegen.NodeType(a.(uint64)).String()
+		case rt.Kind() == reflect.UnsafePointer:
+			s = "<unsafe-pointer>"
 		default:
 			s = fmt.Sprintf("%v", a)
 		}

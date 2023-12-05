@@ -27,7 +27,7 @@ func emptyIntSliceNode() testData {
 		},
 	}
 }
-func intNode() testData {
+func int100Node() testData {
 	return testData{
 		name:  "int(100)",
 		value: 100,
@@ -282,15 +282,17 @@ func pointerToInterfaceStructContainingInterfacesNode() testData {
 				AddNode(nodes[1], nodes[2])
 				nodes[2].Parent = nodes[1]
 				AddNode(nodes[2], &Node{
+					Parent:    nodes[2],
 					Marshaler: m,
 					Index:     0,
 					Id:        3,
 					Typename:  "field",
 					Type:      typegen.FieldNode,
 					Name:      "iFace1",
-					Parent:    nodes[2],
 				})
 				AddNode(GetNode(nodes[2], 0), nodes[3])
+				nodes[3].Parent = GetNode(nodes[2], 0)
+
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
 					Index:     1,
@@ -301,6 +303,7 @@ func pointerToInterfaceStructContainingInterfacesNode() testData {
 					Parent:    nodes[2],
 				})
 				AddNode(GetNode(nodes[2], 1), nodes[4])
+				nodes[4].Parent = GetNode(nodes[2], 1)
 
 				AddNode(nodes[3], &Node{
 					Marshaler: m,
@@ -488,9 +491,10 @@ func pointerToSimpleStruct() testData {
 	}
 }
 func sliceOfAnyContainingHelloGoodbye() testData {
+	value := []any{"Hello", "Goodbye"}
 	return testData{
 		name:  "Slice of any containing \"Hello\", \"GoodBye\"",
-		value: []any{"Hello", "Goodbye"},
+		value: value,
 		want:  wantValue(`[]any`, `[]any{"Hello","Goodbye",}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -499,8 +503,8 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Marshaler: m,
 					Id:        1,
 					Index:     0,
-					Value:     nil,
 					Type:      typegen.SliceNode,
+					Value:     value,
 					Name:      "[]interface {}",
 					Typename:  "[]interface {}",
 				},
@@ -523,6 +527,7 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Value:     `Goodbye`,
 				},
 			}, func(nodes typegen.Nodes) {
+
 				AddNode(nodes[1], &Node{
 					Marshaler: m,
 					Index:     0,
@@ -534,6 +539,8 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Value:     0,
 				})
 				AddNode(GetNode(nodes[1], 0), nodes[2])
+
+				nodes[2].Parent = GetNode(nodes[1], 0)
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
 					Index:     0,
@@ -544,6 +551,7 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Typename:  "string",
 					Value:     `Hello`,
 				})
+
 				AddNode(nodes[1], &Node{
 					Marshaler: m,
 					Index:     1,
@@ -555,6 +563,8 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 					Value:     1,
 				})
 				AddNode(GetNode(nodes[1], 1), nodes[3])
+
+				nodes[3].Parent = GetNode(nodes[1], 1)
 				AddNode(nodes[3], &Node{
 					Marshaler: m,
 					Index:     0,
@@ -570,9 +580,10 @@ func sliceOfAnyContainingHelloGoodbye() testData {
 	}
 }
 func simpleAnySliceAllSameNumbers() testData {
+	value := []any{1, 1, 1}
 	return testData{
 		name:  "Simple any slice, all same numbers",
-		value: []any{1, 1, 1},
+		value: value,
 		want:  wantValue(`[]any`, `[]any{1,1,1,}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -583,6 +594,7 @@ func simpleAnySliceAllSameNumbers() testData {
 					Type:      typegen.SliceNode,
 					Name:      "[]interface {}",
 					Typename:  "[]interface {}",
+					Value:     value,
 				},
 				{
 					Marshaler: m,
@@ -685,9 +697,10 @@ func simpleAnySliceAllSameNumbers() testData {
 	}
 }
 func simpleAnySlice123() testData {
+	value := []any{1, 2, 3}
 	return testData{
 		name:  "Slice of `any` containing 1,2,3",
-		value: []any{1, 2, 3},
+		value: value,
 		want:  wantValue(`[]any`, `[]any{1,2,3,}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -698,6 +711,7 @@ func simpleAnySlice123() testData {
 					Type:      typegen.SliceNode,
 					Name:      "[]interface {}",
 					Typename:  "[]interface {}",
+					Value:     value,
 				},
 				{
 					Marshaler: m,
@@ -800,9 +814,10 @@ func simpleAnySlice123() testData {
 	}
 }
 func simple3ElementIntArray123() testData {
+	value := [3]int{1, 2, 3}
 	return testData{
 		name:  "Simple 3-element int array: 1, 2, 3",
-		value: [3]int{1, 2, 3},
+		value: value,
 		want:  wantValue(`[3]int`, `[3]int{1,2,3,}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -813,6 +828,7 @@ func simple3ElementIntArray123() testData {
 					Type:      typegen.ArrayNode,
 					Name:      "[3]int",
 					Typename:  "[3]int",
+					Value:     value,
 				},
 			}, func(nodes typegen.Nodes) {
 				AddNode(nodes[1], &Node{
@@ -881,9 +897,10 @@ func simple3ElementIntArray123() testData {
 	}
 }
 func emptyStringIntMap() testData {
+	value := map[string]int{}
 	return testData{
 		name:  "Empty string/int map",
-		value: map[string]int{},
+		value: value,
 		want:  wantValue("map[string]int", "map[string]int{}"),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -894,15 +911,17 @@ func emptyStringIntMap() testData {
 					Type:      typegen.MapNode,
 					Name:      "map[string]int",
 					Typename:  "map[string]int",
+					Value:     value,
 				},
 			}, nil)
 		},
 	}
 }
 func simple3ElementIntSlice123() testData {
+	value := []int{1, 2, 3}
 	return testData{
 		name:  "Simple 3-element int slice: 1, 2, 3",
-		value: []int{1, 2, 3},
+		value: value,
 		want:  wantValue(`[]int`, `[]int{1,2,3,}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -913,6 +932,7 @@ func simple3ElementIntSlice123() testData {
 					Type:      typegen.SliceNode,
 					Name:      "[]int",
 					Typename:  "[]int",
+					Value:     value,
 				},
 			}, func(nodes typegen.Nodes) {
 				AddNode(nodes[1], &Node{
@@ -981,9 +1001,10 @@ func simple3ElementIntSlice123() testData {
 	}
 }
 func emptyIntArray() testData {
+	value := [0]int{}
 	return testData{
 		name:  "Empty array",
-		value: [0]int{},
+		value: value,
 		want:  wantValue(`[0]int`, `[0]int{}`),
 		nodes: func(m *nM) typegen.Nodes {
 			return FixupNodes(typegen.Nodes{
@@ -994,6 +1015,7 @@ func emptyIntArray() testData {
 					Type:      typegen.ArrayNode,
 					Name:      "[0]int",
 					Typename:  "[0]int",
+					Value:     value,
 				},
 			}, nil)
 		},
@@ -1043,6 +1065,7 @@ func anySliceOfReflectValueOf10() testData {
 					Name:      "Value 0",
 					Type:      typegen.InterfaceNode,
 					Typename:  "any(reflect.Value)",
+					Value:     reflect.ValueOf(10),
 				},
 			}, func(nodes typegen.Nodes) {
 
@@ -1053,9 +1076,11 @@ func anySliceOfReflectValueOf10() testData {
 					Name:      "Index 0",
 					Typename:  "element",
 					Type:      typegen.ElementNode,
-					Value:     ``,
+					Value:     0,
 				})
 				AddNode(GetNode(nodes[1], 0), nodes[2])
+				nodes[2].Parent = GetNode(nodes[1], 0)
+
 				AddNode(nodes[2], &Node{
 					Parent:    nodes[2],
 					Id:        4,
@@ -1106,6 +1131,8 @@ func pointerToStructWithPropertyPointingToItself() testData {
 
 				AddNode(nodes[1], nodes[2])
 
+				nodes[2].Parent = nodes[1]
+
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
 					Parent:    nodes[2],
@@ -1127,6 +1154,9 @@ func pointerToStructWithPropertyPointingToItself() testData {
 					Name:      "recur",
 					Value:     nil,
 				})
+
+				nodes[1].Parent = GetNode(nodes[2], 1)
+
 				AddNode(nodes[2], &Node{
 					Marshaler: m,
 					Parent:    nodes[2],
@@ -1201,10 +1231,11 @@ func pointerToStructWithIndirectPropertyPointingToItself() testData {
 					Name:      "[]*typegen_test.recurStruct",
 					Typename:  "[]*typegen_test.recurStruct",
 					Type:      typegen.SliceNode,
-					Value:     recur,
+					Value:     []any{"<example>"},
 				},
 			}, func(nodes typegen.Nodes) {
 
+				nodes[2].Parent = nodes[1]
 				AddNode(nodes[1], nodes[2])
 
 				AddNode(nodes[2], &Node{
@@ -1218,17 +1249,20 @@ func pointerToStructWithIndirectPropertyPointingToItself() testData {
 				})
 
 				AddNode(GetNode(nodes[2], 0), nodes[3])
+				nodes[3].Parent = GetNode(nodes[2], 0)
 
 				AddNode(nodes[3], &Node{
 					Marshaler: m,
 					Parent:    nodes[3],
 					Id:        5,
 					Name:      `Index 0`,
+					Value:     0,
 					Typename:  "element",
 					Type:      typegen.ElementNode,
 				})
 
 				AddNode(GetNode(nodes[3], 0), nodes[1])
+				nodes[1].Parent = GetNode(nodes[3], 0)
 
 			})
 		},
