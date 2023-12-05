@@ -2,6 +2,15 @@
 
 package typegen
 
+import (
+	"fmt"
+	"os"
+)
+
+func init() {
+	fmt.Fprintln(os.Stderr, "Testing...")
+}
+
 func TestInitNodes(nodes Nodes) Nodes {
 	for i, n := range nodes {
 		nodes[i] = TestInitNode(n)
