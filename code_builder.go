@@ -120,7 +120,7 @@ func (b *CodeBuilder) selectNode(index int) (n *Node, _ int, nt NodeType) {
 		// this if statement.
 		goto end
 	}
-	// Some interfaces needd to be skipped, like the ones that preced a value, but
+	// Some interfaces need to be skipped, like the ones that preced a value, but
 	// others are children and should not be skipped.
 	if n.Type == InterfaceNode && !b.matchesPrior(n, index) {
 		// Seems we did not match the prior Node in .nodes to do not skip it.
