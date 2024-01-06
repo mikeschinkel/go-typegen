@@ -10,7 +10,7 @@ replace github.com/mikeschinkel/go-diffator => ../go-diffator
 
 require (
 	github.com/mikeschinkel/go-diffator v0.0.0-00010101000000-000000000000
-	github.com/mikeschinkel/go-lib v0.0.0-00010101000000-000000000000
+	github.com/mikeschinkel/go-lib v0.0.0-20240105150559-6b08a12c3c43
 	github.com/stretchr/testify v1.8.4
 )
 

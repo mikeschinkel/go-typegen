@@ -78,24 +78,24 @@ func TestNodeBuilder_Marshal(t *testing.T) {
 }
 
 func getDiff(want, got any) (diff string) {
-	d := diffator.NewDiffator()
-	d.Pretty = true
 	nodeType := reflect.TypeOf((*typegen.NodeType)(nil)).Elem()
-	d.FormatFunc = func(rt reflect.Type, a any) (s string) {
-		switch {
-		case rt == nil:
-			s = "<invalid>"
-		case rt == nodeType:
-			s = typegen.NodeType(a.(uint64)).String()
-		case rt.Kind() == reflect.UnsafePointer:
-			s = "<unsafe-pointer>"
-		default:
-			s = fmt.Sprintf("%v", a)
-		}
-		return s
-	}
-	diff = d.Diff(want, got)
-	return diff
+	comparator := diffator.NewObjectComparator(want, got, &diffator.ObjectOpts{
+		PrettyPrint: diffator.Bool(true),
+		FormatFunc: func(rt reflect.Type, a any) (s string) {
+			switch {
+			case rt == nil:
+				s = "<invalid>"
+			case rt == nodeType:
+				s = typegen.NodeType(a.(uint64)).String()
+			case rt.Kind() == reflect.UnsafePointer:
+				s = "<unsafe-pointer>"
+			default:
+				s = fmt.Sprintf("%v", a)
+			}
+			return s
+		},
+	})
+	return comparator.Compare()
 }
 
 func wantValue(typ, want string, args ...any) string {
