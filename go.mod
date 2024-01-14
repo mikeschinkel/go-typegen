@@ -2,15 +2,9 @@ module github.com/mikeschinkel/go-typegen
 
 go 1.21
 
-replace github.com/mikeschinkel/go-serr => ../go-serr
-
-replace github.com/mikeschinkel/go-lib => ../go-lib
-
-replace github.com/mikeschinkel/go-diffator => ../go-diffator
-
 require (
-	github.com/mikeschinkel/go-diffator v0.0.0-00010101000000-000000000000
-	github.com/mikeschinkel/go-lib v0.0.0-20240105150559-6b08a12c3c43
+	github.com/mikeschinkel/go-diffator v0.0.0-20240106010639-56550da6a1bd
+	github.com/mikeschinkel/go-lib v0.0.0-20240106005120-5f93962a57d4
 	github.com/stretchr/testify v1.8.4
 )
 

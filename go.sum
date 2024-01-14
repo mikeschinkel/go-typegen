@@ -1,5 +1,9 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/mikeschinkel/go-diffator v0.0.0-20240106010639-56550da6a1bd h1:7sekfxlY0njRCHf4NdfMvCKQUYucdZHPNqdKn5BJ7zU=
+github.com/mikeschinkel/go-diffator v0.0.0-20240106010639-56550da6a1bd/go.mod h1:TEV/sGeySOLWi1S16Xj1J8PCPCxKwGWILb9EBCHZ/u0=
+github.com/mikeschinkel/go-lib v0.0.0-20240106005120-5f93962a57d4 h1:mJqb2eVf4gykvyNOIRDRskYnkEFm3bumc3vEdqWa9es=
+github.com/mikeschinkel/go-lib v0.0.0-20240106005120-5f93962a57d4/go.mod h1:HmJP4+kZDbZHHvuhFVlzVCRLy54grOQhtmUzZ67aLDs=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
