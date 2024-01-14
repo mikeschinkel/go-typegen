@@ -1,0 +1,8 @@
+go 1.21
+
+use (
+	. // '.' represents current project
+	../go-diffator
+	../go-lib
+	../go-serr
+)
